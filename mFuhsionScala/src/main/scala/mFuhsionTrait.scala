@@ -19,15 +19,15 @@
   */
 trait mFuhsionTrait {
 
-  def mFuhsion (rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Float]], threshold: Float, table_1: List[String], table_2: List[String]) : List[Tuple2[String, String]]
+  def mFuhsion (rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Double]], threshold: Double, table_1: List[RTL], table_2: List[RTL]) : List[Tuple2[String, String]]
 
-  def stage (rtl: RTL, own_table:List[String], dif_table:List[String], similarity: Array[Array[Float]], threshold: Float) : List[Tuple2[String, String]]
+  def stage (rtl: RTL, own_table:List[RTL], dif_table:List[RTL], similarity: Array[Array[Double]], threshold: Double) : List[Tuple2[String, String]]
 
-  def insert(rtl: RTL, table: List[String])
+  def insert(rtl: RTL, table: List[RTL])
 
-  def probe (rtl: RTL, table: List[String], similarity: Array[Array[Float]], threshold: Float): List[Tuple2[String, String]]
+  def probe (rtl: RTL, table: List[RTL], similarity: Array[Array[Double]], threshold: Double): List[Tuple2[String, String]]
 
-  def sim (rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Float]]): Float
+  def sim (rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Double]]): Double
 
 }
 
