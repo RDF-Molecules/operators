@@ -1,5 +1,4 @@
 
-
 class MFuhsion():
 
     """
@@ -33,7 +32,7 @@ class MFuhsion():
         if rtl not in own_table:
             own_table.append(rtl)
 
-        #probe rtl against the other table
+        # probe rtl against the other table
         return self.probe(rtl, other_table, similarity, threshold, output)
 
     def probe(self, rtl, table, similarity, threshold, output):
@@ -42,8 +41,9 @@ class MFuhsion():
             head = record['head']
 
             if (probing_head, head) not in self.computedJoins:
-                #check similarity using the threshold
+                # check similarity using the threshold
                 if self.sim(probing_head, head, similarity) > threshold:
+                    # (record, rtl) and (rtl, record) are considered the same in our case, check if it's already in the results
                     if (record, rtl) not in output:
                         output.append((rtl, record))
                 self.computedJoins.append((probing_head, head))
