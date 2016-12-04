@@ -8,10 +8,8 @@ object Main {
     val t3 = new Tuple3[String, Int, Int]("Hello", 2, 4)
     println(t.toString())
     println(t3.toString())
-
     var a = List(List(0.1, 0.2), List(0.3,0.4), List(0.5, 0.6))
     println(a.apply(0).apply(1))
-
   }
 
 }

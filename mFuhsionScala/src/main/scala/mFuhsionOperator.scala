@@ -3,7 +3,7 @@
   */
 class mFuhsionOperator extends mFuhsionTrait {
 
-  override def mFuhsion(rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Double]], threshold: Double, table_1: List[RTL], table_2: List[RTL]): List[(String, String)] = {
+  override def mFuhsion(rtl_1: RTL, rtl_2: RTL, similarity: Array[Array[Double]], threshold: Double, table_1: List[RTL], table_2: List[RTL]): List[Tuple2[RTL, RTL]] = {
 
     val result_1 = stage(rtl_1, table_2, table_1, similarity, threshold)
     val result_2 = stage(rtl_2, table_1, table_2, similarity, threshold)
@@ -11,20 +11,26 @@ class mFuhsionOperator extends mFuhsionTrait {
 
   }
 
-  override def stage(rtl: RTL, own_table: List[RTL], dif_table: List[RTL], similarity: Array[Array[Double]], threshold: Double): List[(String, String)] = {
-
+  override def stage(rtl: RTL, own_table: List[RTL], dif_table: List[RTL], similarity: Array[Array[Double]], threshold: Double): List[Tuple2[RTL, RTL]] = {
     //insert
     insert(rtl, own_table)
     //probe
     return probe(rtl, dif_table, similarity, threshold)
-
   }
 
   override def insert(rtl: RTL, table: List[RTL]) = {
     table.::(rtl)
   }
 
-  override def probe(rtl: RTL, table: List[RTL], similarity: Array[Array[Double]], threshold: Double): List[(String, String)] = {
+  override def probe(rtl: RTL, table: List[RTL], similarity: Array[Array[Double]], threshold: Double): List[Tuple2[RTL, RTL]] = {
+
+    val result = table map { some_rtl =>
+      if ( sim(some_rtl, rtl, similarity) > threshold)
+        new Pair[RTL, RTL](rtl, some_rtl)
+    }
+
+
+
     //val toBeJoined = new List[Tuple2[String, String]]()
     /*
      probing_head = rtl1.head
