@@ -1,4 +1,7 @@
 from mFuhsion import MFuhsion
+from mergeOperator import MergeOp
+import rdflib
+from rdflib.plugins.sparql import prepareQuery
 
 rtl1 = {
     "head": {"uri": "http://dbpedia.org/resource/Drug1",
@@ -92,8 +95,34 @@ for dbe in dbp_source:
 for tbj in fusion_op.toBeJoined:
     for ent in tbj:
         print ent['head']['uri']
-    print '\n'
+    print "\n"
 
 print len(fusion_op.toBeJoined)
 
+print "Merging the RTLs"
+mergeOp = MergeOp("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
+for tbj in fusion_op.toBeJoined:
+    merged = mergeOp.execute(tbj)
+    print merged
+    print "\n"
 
+
+
+# g = rdflib.Graph()
+# g.load("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
+# query_result = g.query("""
+#             PREFIX owl: <http://www.w3.org/2002/07/owl#>
+#             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+#             ASK { <http://dbpedia.org/ontology/weight> rdf:type owl:FunctionalProperty . }
+#         """)
+# for row in query_result:
+#     print bool(row)
+#print query_result[0]['askAnswer']
+#
+# query2 = prepareQuery("ASK { ?property rdf:type owl:FunctionalProperty . }",
+#                       initNs={"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+#                               "owl": "http://www.w3.org/2002/07/owl#"})
+# prop = rdflib.URIRef("http://dbpedia.org/ontology/weight")
+# res = g.query(query2, initBindings={'property': prop})
+# for row in res:
+#     print bool(row)
