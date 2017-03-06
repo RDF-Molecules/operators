@@ -22,7 +22,7 @@ class MFuhsion():
         self.toBeJoined = []
         self.total_op_time = 0
         self.total_sim_time = 0
-        # self.computedJoins = []
+        self.computedJoins = {}
 
     def execute_new(self, rtl1, rtl2):
 
@@ -46,12 +46,21 @@ class MFuhsion():
 
     def probe_new(self, rtl, table):
         for existingUri in table:
-            start_sim_time = time()
 
-            simscore = self.sim(rtl, existingUri)
+            # TODO delete those ifs when the similarity function is a real REST call
+            if (rtl, existingUri) in self.computedJoins:
+                simscore = self.computedJoins[(rtl, existingUri)]
+            elif (existingUri, rtl) in self.computedJoins:
+                simscore = self.computedJoins[(existingUri, rtl)]
+            else:
+                start_sim_time = time()
 
-            finish_sim_time = time()
-            self.total_sim_time += finish_sim_time - start_sim_time
+                simscore = self.sim(rtl, existingUri)
+
+                finish_sim_time = time()
+                self.total_sim_time += finish_sim_time - start_sim_time
+                self.computedJoins[(rtl, existingUri)] = simscore
+                self.computedJoins[(existingUri, rtl)] = simscore
 
             if simscore >= self.threshold:
                 if ((rtl, existingUri) not in self.toBeJoined) and ((existingUri, rtl) not in self.toBeJoined):

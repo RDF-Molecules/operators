@@ -12,6 +12,7 @@ from rdflib.plugins.sparql import prepareQuery
 import random
 from SPARQLWrapper import SPARQLWrapper, JSON, POST, N3
 import json
+import re
 
 rtl1 = {
     "head": {"uri": "http://dbpedia.org/resource/Drug1",
@@ -94,29 +95,31 @@ dbpedia3(rtl4)       sim7               sim8                sim9
 similarity = [[0.8, 0.6, 0.5],
               [0.76, 0.54, 0.32],
               [0.9, 0.4, 0.83]]
-threshold = 0.4
+threshold = 0.8
+nonBlockingGoldStandard = []
 
-
-def testMFuhsion():
+def testMFuhsion(path1, path2):
     dbp_source = [rtl1, rtl3, rtl4]
     wd_source = [rtl2, rtl5, rtl6]
 
-    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
-    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+    print "Semantic Join Non-Blocking Operator"
+    dbp_rtls_path = path1
+    drugbank_rtl_path = path2
 
     dbp_rtls = []
     drugbank_rtls = []
+    print "Reading ",path1
     with codecs.open(dbp_rtls_path, "r") as f:
         for line in f:
             newline = line.replace('\"row\": true', '\"row\":True')
             dbp_rtls.append(eval(newline))
-
+    print "Reading ", path2
     with codecs.open(drugbank_rtl_path, "r") as f2:
         for line in f2:
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
-
-    fusion_op = MFuhsion(0.4)
+    print "Executing Join"
+    fusion_op = MFuhsion(threshold)
     for dbe in dbp_rtls:
         for wde in drugbank_rtls:
             fusion_op.execute_new(dbe, wde)
@@ -128,6 +131,12 @@ def testMFuhsion():
     print "Overall ",str(len(fusion_op.toBeJoined))," pairs"
     print "Overall time ",fusion_op.total_op_time," seconds including ",fusion_op.total_sim_time, " seconds for sim"
     print "Clean time is ", fusion_op.total_op_time-fusion_op.total_sim_time
+
+    # compute precision and recall
+    global nonBlockingGoldStandard
+    nonBlockingGoldStandard = fusion_op.toBeJoined[:]
+    print "Precision: 1.000"
+    print "Recall: 1.000"
     print "-----"
 
     # print "Merging the RTLs"
@@ -157,7 +166,7 @@ def testMFuhsion():
     #     print bool(row)
 
 
-def load_drugs_dbp(file_name, isDbp):
+def load_drugs_dbp(file_name, isDbp, limit):
     """
 
     :param dbp_file: molecules in dbpedia drugs dump
@@ -168,11 +177,13 @@ def load_drugs_dbp(file_name, isDbp):
     if isDbp:
         molecules_file = codecs.open(file_name, "r")
         endpoint = "https://dydra.com/collarad/dbpedia_drugs/sparql"
-        output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt", "w")
+        newfilename = "dbp_rtl"+str(limit)+".txt"
+        output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/"+newfilename, "w")
     else:
         molecules_file = codecs.open(file_name, "r")
         endpoint = "https://dydra.com/collarad/drugbank/sparql"
-        output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt", "w")
+        newfilename = "drugbank_rtl"+str(limit)+".txt"
+        output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/"+newfilename, "w")
 
     query_template = """
         SELECT ?p ?o WHERE { <%s> ?p ?o . }
@@ -203,14 +214,11 @@ def load_drugs_dbp(file_name, isDbp):
         output_file.write("\n")
         print i
         i += 1
-        # if i==10:
-        #     break
+        if i==limit:
+            break
 
     molecules_file.close()
     output_file.close()
-
-#load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_dbp_gades.txt", True)
-#load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_db_gades.txt", False)
 
 def load_and_run():
     dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
@@ -271,27 +279,43 @@ def testPerfectOperator():
     # sims = m.compute(cost_matrix)
     #print_matrix(result, msg="Lowest values are ")
 
+goldStandardPairs = []
+def prepareGoldStandardForPrecRec(path1, path2):
 
-def testSimHashJoin():
+    with codecs.open(path1, "r") as f1:
+        uris1 = f1.readlines()
+
+    with codecs.open(path2, "r") as f2:
+        uris2 = f2.readlines()
+
+    for i in xrange(len(uris1)):
+        name1 = re.sub('[<>]', '', uris1[i].strip())
+        name2 = re.sub('[<>]', '', uris2[i].strip())
+        goldStandardPairs.append((name1,name2))
+
+
+def testSimHashJoin(path1, path2):
     dbp_source = [rtl4, rtl1, rtl3]
     wd_source = [rtl2, rtl5, rtl6]
 
-    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
-    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+    print "Hash Join Blocking Perfect Operator"
+    dbp_rtls_path = path1
+    drugbank_rtl_path = path2
 
     dbp_rtls = []
     drugbank_rtls = []
+    print "Reading", path1
     with codecs.open(dbp_rtls_path, "r") as f:
         for line in f:
             newline = line.replace('\"row\": true', '\"row\":True')
             dbp_rtls.append(eval(newline))
-
+    print "Reading", path2
     with codecs.open(drugbank_rtl_path, "r") as f2:
         for line in f2:
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
-
-    simHashOp = SimilarityHashJoin(0.4)
+    print "Executing Join"
+    simHashOp = SimilarityHashJoin(threshold)
     simHashOp.execute_new(dbp_rtls, drugbank_rtls)
 
     # for (a,b) in simHashOp.results:
@@ -301,28 +325,39 @@ def testSimHashJoin():
     print "Overall ", str(len(simHashOp.results)), "pairs"
     print "Total operator time ",simHashOp.operatorTimeTotal, " seconds including ",simHashOp.simTimeTotal, " seconds for similarity"
     print "Clean time is ",simHashOp.operatorTimeTotal - simHashOp.simTimeTotal, " seconds"
+    # compute precision and recall
+    intersection = 0
+    for a, b in simHashOp.results:
+        if ((a, b) in goldStandardPairs) or ((b, a) in goldStandardPairs):
+            intersection += 1
+    precision = float(intersection) / len(simHashOp.results)
+    recall = float(intersection) / len(goldStandardPairs)
+
+    print "Precision", precision
+    print "Recall", recall
     print "-----"
 
-def testSymmetricSimHashJoin():
+def testSymmetricSimHashJoin(path1, path2):
     dbp_source = [rtl4, rtl1, rtl3]
     wd_source = [rtl2, rtl5, rtl6]
-
-    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
-    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+    print "Symmetric Hash Join Non-Blocking Operator"
+    dbp_rtls_path = path1
+    drugbank_rtl_path = path2
 
     dbp_rtls = []
     drugbank_rtls = []
+    print "Reading", path1
     with codecs.open(dbp_rtls_path, "r") as f:
         for line in f:
             newline = line.replace('\"row\": true', '\"row\":True')
             dbp_rtls.append(eval(newline))
-
+    print "Reading", path2
     with codecs.open(drugbank_rtl_path, "r") as f2:
         for line in f2:
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
-
-    symSimOp = SymmetricSimilarityHashJoin(0.4)
+    print "Executing Join"
+    symSimOp = SymmetricSimilarityHashJoin(threshold)
     for s1 in dbp_rtls:
         for s2 in drugbank_rtls:
             symSimOp.execute(s1, s2)
@@ -335,27 +370,38 @@ def testSymmetricSimHashJoin():
     print "Overall ", str(len(symSimOp.results)), "pairs"
     print "Total operator time ", symSimOp.operatorTimeTotal, "seconds including ", symSimOp.simTimeTotal, "seconds for similarity"
     print "Clean time is",symSimOp.operatorTimeTotal - symSimOp.simTimeTotal, " seconds "
+
+    # compute precision and recall as to Semantic Join Non-Blocking
+    intersection = 0
+    for a,b in symSimOp.results:
+        if ((a,b) in nonBlockingGoldStandard) or ((b,a) in nonBlockingGoldStandard):
+            intersection += 1
+    precision = float(intersection)/len(symSimOp.results)
+    recall = float(intersection)/len(nonBlockingGoldStandard)
+    print "Precision as to Semantic Non-Blocking: ", precision
+    print "Recall as to Semantic Non-Blocking: ", recall
     print "-----"
 
-def testMFuhsionPerfect():
+def testMFuhsionPerfect(path1, path2):
     dbp_source = [rtl4, rtl1, rtl3]
     wd_source = [rtl2, rtl5, rtl6]
-
-    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
-    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+    print "Semantic Join Blocking Perfect Operator"
+    dbp_rtls_path = path1
+    drugbank_rtl_path = path2
     dbp_rtls = []
     drugbank_rtls = []
+    print "Reading", path1
     with codecs.open(dbp_rtls_path, "r") as f:
         for line in f:
             newline = line.replace('\"row\": true', '\"row\":True')
             dbp_rtls.append(eval(newline))
-
+    print "Reading", path2
     with codecs.open(drugbank_rtl_path, "r") as f2:
         for line in f2:
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
-
-    perfectOp = MFuhsionPerfect(0.4)
+    print "Executing Join"
+    perfectOp = MFuhsionPerfect(threshold)
 
     perfectOp.execute_new(dbp_rtls, drugbank_rtls)
     # for a,b in perfectOp.toBeJoined:
@@ -365,14 +411,26 @@ def testMFuhsionPerfect():
     print "Overall ",str(len(perfectOp.toBeJoined))," pairs"
     print "Total operator time ",perfectOp.total_op_time, "seconds including ",perfectOp.total_sim_time,"seconds for similarity"
     print "Clean time is ",perfectOp.total_op_time - perfectOp.total_sim_time, "seconds"
+    # compute precision and recall
+    intersection = 0
+    for a, b in perfectOp.toBeJoined:
+        if ((a, b) in goldStandardPairs) or ((b, a) in goldStandardPairs):
+            intersection += 1
+    precision = float(intersection) / len(perfectOp.toBeJoined)
+    recall = float(intersection) / len(goldStandardPairs)
+
+    print "Precision", precision
+    print "Recall", recall
     print "-----"
 
-
-random.seed(10)
-testMFuhsion()
-testSymmetricSimHashJoin()
-testMFuhsionPerfect()
-testSimHashJoin()
+#load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_dbp_gades.txt", True, 1568)
+#load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_db_gades.txt", False, 1568)
+prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_dbpedia.txt","/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_drugbank.txt")
+random.seed(9)
+testMFuhsion("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
 
 
 

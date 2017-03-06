@@ -24,6 +24,7 @@ class SymmetricSimilarityHashJoin(object):
         self.threshold = threshold
         self.simTimeTotal = 0
         self.operatorTimeTotal = 0
+        self.computedJoins = {}
 
     def execute(self, rtl1, rtl2):
         start_op_time = time()
@@ -53,11 +54,20 @@ class SymmetricSimilarityHashJoin(object):
 
     def probe(self, uri, hashTable, bucketIndex):
         # find in the relevant bucket all uris which similarity is higher than the threshold
+        # TODO delete those ifs when a real similarity rest service is implemented
         for existingUri in hashTable.partitions[bucketIndex].records:
-            start_sim_time = time()
-            simscore = self.sim(uri, existingUri)
-            finish_sim_time = time()
-            self.simTimeTotal += finish_sim_time - start_sim_time
+            if (uri, existingUri) in self.computedJoins:
+                simscore = self.computedJoins[(uri, existingUri)]
+            elif (existingUri, uri) in self.computedJoins:
+                simscore = self.computedJoins[(existingUri, uri)]
+            else:
+                start_sim_time = time()
+                simscore = self.sim(uri, existingUri)
+                finish_sim_time = time()
+                self.simTimeTotal += finish_sim_time - start_sim_time
+                self.computedJoins[(uri,existingUri)] = simscore
+                self.computedJoins[(existingUri,uri)] = simscore
+
             if simscore >= self.threshold:
                 if ((existingUri, uri) not in self.results) and ((uri, existingUri) not in self.results):
                     self.results.append((uri, existingUri))
