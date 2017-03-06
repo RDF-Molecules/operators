@@ -1,12 +1,15 @@
 from mFuhsion import MFuhsion
 from mFuhsionPerfect import MFuhsionPerfect
 from mergeOperator import MergeOp
+from baseline_ops.SimHashJoin import SimilarityHashJoin
+from baseline_ops.SymmetricSimHasJoin import SymmetricSimilarityHashJoin
 import codecs
 import operator
 import sys
 from munkres import Munkres, make_cost_matrix, print_matrix
 import rdflib
 from rdflib.plugins.sparql import prepareQuery
+import random
 from SPARQLWrapper import SPARQLWrapper, JSON, POST, N3
 import json
 
@@ -40,9 +43,9 @@ rtl3 = {
              "row": True},
     "tail": [
         {"prop": "http://dbpedia.org/prop/prop1",
-         "value": 11},
+         "value": 22},
         {"prop": "http://dbpedia.org/prop/prop2",
-         "value": "abc"}
+         "value": "xyz"}
     ]
 }
 
@@ -52,9 +55,9 @@ rtl4 = {
              "row": True},
     "tail": [
         {"prop": "http://dbpedia.org/prop/prop1",
-         "value": 11},
+         "value": 99},
         {"prop": "http://dbpedia.org/prop/prop2",
-         "value": "abc"}
+         "value": "qwerty"}
     ]
 }
 
@@ -64,9 +67,9 @@ rtl5 = {
              "row": False},
     "tail": [
         {"prop": "http://dbpedia.org/prop/prop2",
-         "value": "zyx"},
+         "value": "poi"},
         {"prop": "http://dbpedia.org/prop/prop3",
-         "value": 1000}
+         "value": 106}
     ]
 }
 
@@ -76,9 +79,9 @@ rtl6 = {
              "row": False},
     "tail": [
         {"prop": "http://dbpedia.org/prop/prop2",
-         "value": "zyx"},
+         "value": "string"},
         {"prop": "http://dbpedia.org/prop/prop3",
-         "value": 1000}
+         "value": 432}
     ]
 }
 """
@@ -251,6 +254,70 @@ def testPerfectOperator():
     #print_matrix(result, msg="Lowest values are ")
 
 
-testPerfectOperator()
+def testSimHashJoin():
+    dbp_source = [rtl4, rtl1, rtl3]
+    wd_source = [rtl2, rtl5, rtl6]
+
+    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
+    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+
+    dbp_rtls = []
+    drugbank_rtls = []
+    with codecs.open(dbp_rtls_path, "r") as f:
+        for line in f:
+            newline = line.replace('\"row\": true', '\"row\":True')
+            dbp_rtls.append(eval(newline))
+
+    with codecs.open(drugbank_rtl_path, "r") as f2:
+        for line in f2:
+            newline = line.replace('\"row\": false', '\"row\":False')
+            drugbank_rtls.append(eval(newline))
+
+    simHashOp = SimilarityHashJoin(0.4)
+    simHashOp.execute_new(dbp_rtls, drugbank_rtls)
+
+    for (a,b) in simHashOp.results:
+        print "Identified joins: ",a," --- ",b
+
+    print "Total operator time ",simHashOp.operatorTimeTotal, " seconds including ",simHashOp.simTimeTotal, " seconds for similarity"
+    print "Clean time is ",simHashOp.operatorTimeTotal - simHashOp.simTimeTotal, " seconds"
+
+def testSymmetricSimHashJoin():
+    dbp_source = [rtl4, rtl1, rtl3]
+    wd_source = [rtl2, rtl5, rtl6]
+
+    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
+    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+
+    dbp_rtls = []
+    drugbank_rtls = []
+    with codecs.open(dbp_rtls_path, "r") as f:
+        for line in f:
+            newline = line.replace('\"row\": true', '\"row\":True')
+            dbp_rtls.append(eval(newline))
+
+    with codecs.open(drugbank_rtl_path, "r") as f2:
+        for line in f2:
+            newline = line.replace('\"row\": false', '\"row\":False')
+            drugbank_rtls.append(eval(newline))
+
+    symSimOp = SymmetricSimilarityHashJoin(0.4)
+    for s1 in dbp_rtls:
+        for s2 in drugbank_rtls:
+            symSimOp.execute(s1, s2)
+
+    for a, b in symSimOp.results:
+        print "Identified joins: ", a, " --- ", b
+    print "-----"
+
+    print "Total operator time ", symSimOp.operatorTimeTotal, "seconds including ", symSimOp.simTimeTotal, "seconds for similarity"
+    print "Clean time is",symSimOp.operatorTimeTotal - symSimOp.simTimeTotal, " seconds "
+
+random.seed(5)
+testSimHashJoin()
+testSymmetricSimHashJoin()
+
+
+
 
 
