@@ -30,10 +30,9 @@ class SymmetricSimilarityHashJoin(object):
         self.left = rtl1
         self.right = rtl2
 
-        # insert
+        # insert and probe
         self.insertIntoHashTable(self.left, self.left_table, self.right_table)
         self.insertIntoHashTable(self.right, self.right_table, self.left_table)
-        # probe
 
         finish_op_time = time()
         self.operatorTimeTotal += finish_op_time - start_op_time

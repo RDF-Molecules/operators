@@ -97,27 +97,45 @@ similarity = [[0.8, 0.6, 0.5],
 threshold = 0.4
 
 
-def testImplementation():
+def testMFuhsion():
     dbp_source = [rtl1, rtl3, rtl4]
     wd_source = [rtl2, rtl5, rtl6]
-    fusion_op = MFuhsion(similarity, threshold)
-    for dbe in dbp_source:
-        for wde in wd_source:
-            fusion_op.execute(dbe, wde)
 
-    for tbj in fusion_op.toBeJoined:
-        for ent in tbj:
-            print ent['head']['uri']
-        print "\n"
+    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
+    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
 
-    print len(fusion_op.toBeJoined)
+    dbp_rtls = []
+    drugbank_rtls = []
+    with codecs.open(dbp_rtls_path, "r") as f:
+        for line in f:
+            newline = line.replace('\"row\": true', '\"row\":True')
+            dbp_rtls.append(eval(newline))
 
-    print "Merging the RTLs"
-    mergeOp = MergeOp("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
-    for tbj in fusion_op.toBeJoined:
-        merged = mergeOp.execute(tbj)
-        print merged
-        print "\n"
+    with codecs.open(drugbank_rtl_path, "r") as f2:
+        for line in f2:
+            newline = line.replace('\"row\": false', '\"row\":False')
+            drugbank_rtls.append(eval(newline))
+
+    fusion_op = MFuhsion(0.4)
+    for dbe in dbp_rtls:
+        for wde in drugbank_rtls:
+            fusion_op.execute_new(dbe, wde)
+
+    # for a,b in fusion_op.toBeJoined:
+    #     print "Identified joins:", a, " --- ", b
+
+    print "Semantic Join Non-Blocking Perfect Operator"
+    print "Overall ",str(len(fusion_op.toBeJoined))," pairs"
+    print "Overall time ",fusion_op.total_op_time," seconds including ",fusion_op.total_sim_time, " seconds for sim"
+    print "Clean time is ", fusion_op.total_op_time-fusion_op.total_sim_time
+    print "-----"
+
+    # print "Merging the RTLs"
+    # mergeOp = MergeOp("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
+    # for tbj in fusion_op.toBeJoined:
+    #     merged = mergeOp.execute(tbj)
+    #     print merged
+    #     print "\n"
 
     # g = rdflib.Graph()
     # g.load("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
@@ -276,11 +294,14 @@ def testSimHashJoin():
     simHashOp = SimilarityHashJoin(0.4)
     simHashOp.execute_new(dbp_rtls, drugbank_rtls)
 
-    for (a,b) in simHashOp.results:
-        print "Identified joins: ",a," --- ",b
+    # for (a,b) in simHashOp.results:
+    #     print "Identified joins: ",a," --- ",b
 
+    print "Hash Join Blocking Perfect Operator"
+    print "Overall ", str(len(simHashOp.results)), "pairs"
     print "Total operator time ",simHashOp.operatorTimeTotal, " seconds including ",simHashOp.simTimeTotal, " seconds for similarity"
     print "Clean time is ",simHashOp.operatorTimeTotal - simHashOp.simTimeTotal, " seconds"
+    print "-----"
 
 def testSymmetricSimHashJoin():
     dbp_source = [rtl4, rtl1, rtl3]
@@ -306,16 +327,53 @@ def testSymmetricSimHashJoin():
         for s2 in drugbank_rtls:
             symSimOp.execute(s1, s2)
 
-    for a, b in symSimOp.results:
-        print "Identified joins: ", a, " --- ", b
-    print "-----"
+    # for a, b in symSimOp.results:
+    #     print "Identified joins: ", a, " --- ", b
+    # print "-----"
 
+    print "Symmetric Hash Join Non-Blocking Operator"
+    print "Overall ", str(len(symSimOp.results)), "pairs"
     print "Total operator time ", symSimOp.operatorTimeTotal, "seconds including ", symSimOp.simTimeTotal, "seconds for similarity"
     print "Clean time is",symSimOp.operatorTimeTotal - symSimOp.simTimeTotal, " seconds "
+    print "-----"
 
-random.seed(5)
-testSimHashJoin()
+def testMFuhsionPerfect():
+    dbp_source = [rtl4, rtl1, rtl3]
+    wd_source = [rtl2, rtl5, rtl6]
+
+    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
+    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
+    dbp_rtls = []
+    drugbank_rtls = []
+    with codecs.open(dbp_rtls_path, "r") as f:
+        for line in f:
+            newline = line.replace('\"row\": true', '\"row\":True')
+            dbp_rtls.append(eval(newline))
+
+    with codecs.open(drugbank_rtl_path, "r") as f2:
+        for line in f2:
+            newline = line.replace('\"row\": false', '\"row\":False')
+            drugbank_rtls.append(eval(newline))
+
+    perfectOp = MFuhsionPerfect(0.4)
+
+    perfectOp.execute_new(dbp_rtls, drugbank_rtls)
+    # for a,b in perfectOp.toBeJoined:
+    #     print "Identified joins: ",a," --- ",b
+
+    print "Semantic Join Blocking Perfect Operator"
+    print "Overall ",str(len(perfectOp.toBeJoined))," pairs"
+    print "Total operator time ",perfectOp.total_op_time, "seconds including ",perfectOp.total_sim_time,"seconds for similarity"
+    print "Clean time is ",perfectOp.total_op_time - perfectOp.total_sim_time, "seconds"
+    print "-----"
+
+
+random.seed(10)
+testMFuhsion()
 testSymmetricSimHashJoin()
+testMFuhsionPerfect()
+testSimHashJoin()
+
 
 
 

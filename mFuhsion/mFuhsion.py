@@ -1,3 +1,5 @@
+from time import time
+import random
 
 class MFuhsion():
 
@@ -12,51 +14,88 @@ class MFuhsion():
     isRow - whether a join argument is located in the row or column of the similarity matrix
     """
 
-    def __init__(self, similarity, threshold):
-        self.similarityMatrix = similarity
+    def __init__(self, threshold):
+        # self.similarityMatrix = similarity
         self.threshold = threshold
-        self.table1 = []
-        self.table2 = []
+        self.left_table = set()
+        self.right_table = set()
         self.toBeJoined = []
-        self.computedJoins = []
+        self.total_op_time = 0
+        self.total_sim_time = 0
+        # self.computedJoins = []
 
-    def execute(self, rtl1, rtl2):
+    def execute_new(self, rtl1, rtl2):
+
+        start_op_time = time()
         self.left = rtl1
         self.right = rtl2
 
-        result1 = self.stage1(self.left, self.table2, self.table1,self.similarityMatrix, self.threshold, self.toBeJoined)
-        result2 = self.stage1(self.right, self.table1, self.table2, self.similarityMatrix, self.threshold, self.toBeJoined)
+        #insert and probe
+        self.insertAndProbe(rtl1, self.left_table, self.right_table)
+        self.insertAndProbe(rtl2, self.right_table, self.left_table)
 
-    def stage1(self, rtl, other_table, own_table, similarity, threshold, output):
-        # insert rtl1 into its own table
-        if rtl not in own_table:
-            own_table.append(rtl)
+        # compute performance time
+        finish_op_time = time()
+        self.total_op_time += finish_op_time - start_op_time
 
-        # probe rtl against the other table
-        return self.probe(rtl, other_table, similarity, threshold, output)
+    def insertAndProbe(self, rtl, ownTable, otherTable):
+        # insert into the corresponding table
+        ownTable.add(rtl['head']['uri'])
+        # probe against another table
+        self.probe_new(rtl['head']['uri'], otherTable)
 
-    def probe(self, rtl, table, similarity, threshold, output):
-        probing_head = rtl['head']
-        for record in table:
-            head = record['head']
+    def probe_new(self, rtl, table):
+        for existingUri in table:
+            start_sim_time = time()
 
-            if (probing_head, head) not in self.computedJoins:
-                # check similarity using the threshold
-                if self.sim(probing_head, head, similarity) > threshold:
-                    # (record, rtl) and (rtl, record) are considered the same in our case, check if it's already in the results
-                    if (record, rtl) not in output:
-                        output.append((rtl, record))
-                self.computedJoins.append((probing_head, head))
+            simscore = self.sim(rtl, existingUri)
 
-        return output
+            finish_sim_time = time()
+            self.total_sim_time += finish_sim_time - start_sim_time
 
-    def sim(self, incoming, existing, similarity):
-        # if the incoming element is located in rows of the similarity matrix, then indexing will be [inc][exist]
-        if incoming['row']:
-            return similarity[incoming['index']][existing['index']]
-        else:
-            # otherwise the element is in columns, then indexing is [exist][inc]
-            return similarity[existing['index']][incoming['index']]
+            if simscore >= self.threshold:
+                if ((rtl, existingUri) not in self.toBeJoined) and ((existingUri, rtl) not in self.toBeJoined):
+                    self.toBeJoined.append((rtl, existingUri))
+
+    def sim(self, uri1, uri2):
+        return random.random()
+
+    #     def execute(self, rtl1, rtl2):
+    #     self.left = rtl1
+    #     self.right = rtl2
+    #
+    #     result1 = self.stage1(self.left, self.right_table, self.left_table,self.similarityMatrix, self.threshold, self.toBeJoined)
+    #     result2 = self.stage1(self.right, self.left_table, self.right_table, self.similarityMatrix, self.threshold, self.toBeJoined)
+    #     def stage1(self, rtl, other_table, own_table, similarity, threshold, output):
+    #     # insert rtl1 into its own table
+    #     if rtl not in own_table:
+    #         own_table.append(rtl)
+    #
+    #     # probe rtl against the other table
+    #     return self.probe(rtl, other_table, similarity, threshold, output)
+    #
+    # def probe(self, rtl, table, similarity, threshold, output):
+    #     probing_head = rtl['head']
+    #     for record in table:
+    #         head = record['head']
+    #
+    #         if (probing_head, head) not in self.computedJoins:
+    #             # check similarity using the threshold
+    #             if self.sim(probing_head, head, similarity) > threshold:
+    #                 # (record, rtl) and (rtl, record) are considered the same in our case, check if it's already in the results
+    #                 if (record, rtl) not in output:
+    #                     output.append((rtl, record))
+    #             self.computedJoins.append((probing_head, head))
+    #
+    #     return output
+    #
+    # def sim(self, incoming, existing, similarity):
+    #     # if the incoming element is located in rows of the similarity matrix, then indexing will be [inc][exist]
+    #     if incoming['row']:
+    #         return similarity[incoming['index']][existing['index']]
+    #     else:
+    #         # otherwise the element is in columns, then indexing is [exist][inc]
+    #         return similarity[existing['index']][incoming['index']]
 
 # def mFuhsionOperator(rtl1, rtl2, similarity, threshold, table1, table2, toBeJoined):
 #
