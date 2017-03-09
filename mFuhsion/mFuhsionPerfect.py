@@ -3,6 +3,14 @@ import sys
 import random
 from munkres import Munkres, make_cost_matrix, print_matrix
 from time import time
+import requests
+import json
+import sys
+import numpy as np
+import ujson
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 class MFuhsionPerfect:
 
@@ -17,7 +25,7 @@ class MFuhsionPerfect:
     isRow - whether a join argument is located in the row or column of the similarity matrix
     """
 
-    def __init__(self, threshold):
+    def __init__(self, threshold, simfunction):
         # self.similarityMatrix = similarity
         self.threshold = threshold
         self.table1 = []
@@ -25,6 +33,8 @@ class MFuhsionPerfect:
         self.toBeJoined = []
         self.computedJoins = []
         self.result_matrix = {}
+        self.simfunction = simfunction
+        self.batchSize = 100
 
         self.left_table = []
         self.right_table = []
@@ -48,36 +58,81 @@ class MFuhsionPerfect:
 
     def insertIntoTable(self, list_rtls, table):
         for rtl in list_rtls:
-            if rtl['head']['uri'] not in table:
+            if (rtl['head']['uri'] not in table) and (len(rtl['tail'])>0):
                 table.append(rtl['head']['uri'])
 
     def probeTables(self, left_table, right_table):
 
         # initialize the similarity matrix
         if len(left_table) > 0 and len(right_table) > 0:
-            simmatrix = [[0 for i in xrange(len(right_table))] for j in xrange(len(left_table))]
+            # simmatrix = [[0 for i in xrange(len(right_table))] for j in xrange(len(left_table))]
+            simmatrix = np.zeros((len(left_table), len(right_table)), float)
 
-            for i in xrange(len(left_table)):
-                for j in xrange(len(right_table)):
-                    start_sim_time = time()
+            # for i in xrange(len(left_table)):
+            #     for j in xrange(len(right_table)):
+            #         start_sim_time = time()
+            #
+            #         simscore = self.sim(left_table[i],right_table[j])
+            #
+            #         finish_sim_time = time()
+            #         self.total_sim_time += finish_sim_time - start_sim_time
+            #
+            #         if simscore >= self.threshold:
+            #             simmatrix[i][j] = simscore
+            start_sim_time = time()
+            for i in xrange(0,len(left_table),self.batchSize):
+                for j in xrange(0, len(right_table), self.batchSize):
+                    if i+self.batchSize<=len(left_table) and j+self.batchSize<=len(right_table):
+                        add_matrix = self.sim_batch(left_table[i:i+self.batchSize],right_table[j:j+self.batchSize])
+                        simmatrix[i:i+self.batchSize, j:j+self.batchSize] = add_matrix
+                    elif i+self.batchSize<=len(left_table) and j+self.batchSize>len(right_table):
+                        add_matrix = self.sim_batch(left_table[i:i+self.batchSize], right_table[j:len(right_table)])
+                        simmatrix[i:i + self.batchSize, j:len(right_table)] = add_matrix
+                    elif i+self.batchSize>len(left_table) and j+self.batchSize<=len(right_table):
+                        add_matrix = self.sim_batch(left_table[i:len(left_table)], right_table[j:j+self.batchSize])
+                        simmatrix[i:len(left_table), j:j + self.batchSize] = add_matrix
+                    else:
+                        add_matrix = self.sim_batch(left_table[i:len(left_table)], right_table[j:len(right_table)])
+                        simmatrix[i:len(left_table), j:len(right_table)] = add_matrix
+            finish_sim_time = time()
+            self.total_sim_time += finish_sim_time - start_sim_time
 
-                    simscore = self.sim(left_table[i],right_table[j])
-
-                    finish_sim_time = time()
-                    self.total_sim_time += finish_sim_time - start_sim_time
-
-                    if simscore >= self.threshold:
-                        simmatrix[i][j] = simscore
-
+            # pruning
+            simmatrix[simmatrix < self.threshold] = 0
             # run hungarian algorithm
-            cost_matrix = make_cost_matrix(simmatrix, lambda cost: sys.maxsize-cost)
+            cost_matrix = make_cost_matrix(simmatrix.tolist(), lambda cost: sys.maxsize-cost)
             m = Munkres()
             perfect_indices = m.compute(cost_matrix)
             for a,b in perfect_indices:
                 self.toBeJoined.append((left_table[a], right_table[b]))
 
     def sim(self, uri1, uri2):
-        return random.random()
+        url = "http://localhost:9000/similarity/"+self.simfunction
+        data = {"tasks": [{"uri1": uri1[1:-1], "uri2": uri2[1:-1]}]}
+        headers = {'content-type': "application/json"}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+        resp_object = json.loads(response.text)
+        return resp_object[0]["value"]
+
+    def sim_batch(self, list_uris1, list_uris2):
+        url = "http://localhost:9000/similarity/" + self.simfunction+"?minimal=true"
+        headers = {'content-type': "application/json"}
+        data = {"tasks": []}
+        for i in xrange(len(list_uris1)):
+            for j in xrange(len(list_uris2)):
+                data["tasks"].append({"uri1":list_uris1[i][1:-1], "uri2":list_uris2[j][1:-1]})
+        # print json.dumps(data, ensure_ascii=False)
+        response = requests.post(url, data=json.dumps(data, ensure_ascii=False), headers=headers)
+        resp_object = ujson.loads(response.text)
+        # results = [[0 for k in xrange(self.batchSize)] for l in xrange(self.batchSize)]
+        results = np.zeros((len(list_uris1),len(list_uris2)), float)
+        i = 0
+        for k in xrange(len(resp_object)):
+            j = k % self.batchSize
+            results[i][j] = resp_object[k]['value']
+            i = i if (j < self.batchSize-1) else i+1
+        return results
+
     # def execute(self, rtl1, rtl2):
     #     self.left = rtl1
     #     self.right = rtl2

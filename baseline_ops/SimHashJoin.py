@@ -12,11 +12,13 @@ from DataStructures import HashTable, Partition
 import operator
 import sys
 import random
+import requests
+import json
 from munkres import Munkres, make_cost_matrix, print_matrix
 
 class SimilarityHashJoin(object):
 
-    def __init__(self, threshold):
+    def __init__(self, threshold, simfunction):
         self.left_table  = HashTable()
         self.right_table = HashTable()
         self.results     = []
@@ -25,6 +27,7 @@ class SimilarityHashJoin(object):
         self.threshold = threshold
         self.simTimeTotal = 0
         self.operatorTimeTotal = 0
+        self.simfunction = simfunction
 
     def execute_new(self, left_rtl_list, right_rtl_list):
         start_op_time = time()
@@ -77,7 +80,12 @@ class SimilarityHashJoin(object):
                 self.results.append((partition1.records[a], partition2.records[b]))
 
     def sim(self, uri1, uri2):
-        return random.random()
+        url = "http://localhost:9000/similarity/"+self.simfunction+"?minimal=true"
+        data = {"tasks": [{"uri1": uri1[1:-1], "uri2": uri2[1:-1]}]}
+        headers = {'content-type': "application/json"}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+        resp_object = json.loads(response.text)
+        return resp_object[0]["value"]
 
     def execute(self, rtl1, rtl2, out):
         # Executes the Similarity Hash Join.

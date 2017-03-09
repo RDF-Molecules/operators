@@ -1,5 +1,7 @@
 from time import time
 import random
+import requests
+import json
 
 class MFuhsion():
 
@@ -14,15 +16,17 @@ class MFuhsion():
     isRow - whether a join argument is located in the row or column of the similarity matrix
     """
 
-    def __init__(self, threshold):
+    def __init__(self, threshold, simfunction):
         # self.similarityMatrix = similarity
         self.threshold = threshold
-        self.left_table = set()
-        self.right_table = set()
+        self.left_table = []
+        self.right_table = []
         self.toBeJoined = []
         self.total_op_time = 0
         self.total_sim_time = 0
         self.computedJoins = {}
+        self.simfunction = simfunction
+        self.numSimCalls = 0
 
     def execute_new(self, rtl1, rtl2):
 
@@ -40,22 +44,27 @@ class MFuhsion():
 
     def insertAndProbe(self, rtl, ownTable, otherTable):
         # insert into the corresponding table
-        ownTable.add(rtl['head']['uri'])
+        if rtl['head']['uri'] not in ownTable:
+            ownTable.append(rtl['head']['uri'])
         # probe against another table
         self.probe_new(rtl['head']['uri'], otherTable)
 
     def probe_new(self, rtl, table):
         for existingUri in table:
 
-            # TODO delete those ifs when the similarity function is a real REST call
+
             if (rtl, existingUri) in self.computedJoins:
+                continue
                 simscore = self.computedJoins[(rtl, existingUri)]
             elif (existingUri, rtl) in self.computedJoins:
+                continue
                 simscore = self.computedJoins[(existingUri, rtl)]
             else:
                 start_sim_time = time()
 
                 simscore = self.sim(rtl, existingUri)
+                self.numSimCalls += 1
+                print self.numSimCalls
 
                 finish_sim_time = time()
                 self.total_sim_time += finish_sim_time - start_sim_time
@@ -67,7 +76,13 @@ class MFuhsion():
                     self.toBeJoined.append((rtl, existingUri))
 
     def sim(self, uri1, uri2):
-        return random.random()
+        print "sim call!"
+        url = "http://localhost:9000/similarity/"+self.simfunction+"?minimal=true"
+        data = {"tasks": [{"uri1": uri1[1:-1], "uri2": uri2[1:-1]}]}
+        headers = {'content-type':"application/json"}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+        resp_object = json.loads(response.text)
+        return resp_object[0]["value"]
 
     #     def execute(self, rtl1, rtl2):
     #     self.left = rtl1

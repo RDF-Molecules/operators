@@ -13,6 +13,7 @@ import random
 from SPARQLWrapper import SPARQLWrapper, JSON, POST, N3
 import json
 import re
+from queryModule import loadSplittedDumps
 
 rtl1 = {
     "head": {"uri": "http://dbpedia.org/resource/Drug1",
@@ -95,8 +96,9 @@ dbpedia3(rtl4)       sim7               sim8                sim9
 similarity = [[0.8, 0.6, 0.5],
               [0.76, 0.54, 0.32],
               [0.9, 0.4, 0.83]]
-threshold = 0.8
+threshold = 0.1
 nonBlockingGoldStandard = []
+simfunction = "gades"
 
 def testMFuhsion(path1, path2):
     dbp_source = [rtl1, rtl3, rtl4]
@@ -119,10 +121,13 @@ def testMFuhsion(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    fusion_op = MFuhsion(threshold)
+    log = codecs.open("mfusion.log","w")
+    fusion_op = MFuhsion(threshold, simfunction)
     for dbe in dbp_rtls:
         for wde in drugbank_rtls:
-            fusion_op.execute_new(dbe, wde)
+            if len(dbe['tail']) >0 and len(wde['tail'])>0:
+                fusion_op.execute_new(dbe, wde)
+                log.write(str(len(fusion_op.toBeJoined))+" total sim calls: "+str(fusion_op.numSimCalls)+"\n")
 
     # for a,b in fusion_op.toBeJoined:
     #     print "Identified joins:", a, " --- ", b
@@ -139,59 +144,24 @@ def testMFuhsion(path1, path2):
     print "Recall: 1.000"
     print "-----"
 
-    # print "Merging the RTLs"
-    # mergeOp = MergeOp("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
-    # for tbj in fusion_op.toBeJoined:
-    #     merged = mergeOp.execute(tbj)
-    #     print merged
-    #     print "\n"
-
-    # g = rdflib.Graph()
-    # g.load("/Users/mikhailgalkin/Downloads/DBpedia_Ontology/dbpedia_2014.owl")
-    # query_result = g.query("""
-    #             PREFIX owl: <http://www.w3.org/2002/07/owl#>
-    #             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-    #             ASK { <http://dbpedia.org/ontology/weight> rdf:type owl:FunctionalProperty . }
-    #         """)
-    # for row in query_result:
-    #     print bool(row)
-    #print query_result[0]['askAnswer']
-    #
-    # query2 = prepareQuery("ASK { ?property rdf:type owl:FunctionalProperty . }",
-    #                       initNs={"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    #                               "owl": "http://www.w3.org/2002/07/owl#"})
-    # prop = rdflib.URIRef("http://dbpedia.org/ontology/weight")
-    # res = g.query(query2, initBindings={'property': prop})
-    # for row in res:
-    #     print bool(row)
-
-
-def load_drugs_dbp(file_name, isDbp, limit):
-    """
-
-    :param dbp_file: molecules in dbpedia drugs dump
-    :param isRow: whether the dump is dbp or db
-    :return: reference to the files with RTLs
-    """
+def queryMolecules(molecules_list, isDbp):
 
     if isDbp:
-        molecules_file = codecs.open(file_name, "r")
         endpoint = "https://dydra.com/collarad/dbpedia_drugs/sparql"
-        newfilename = "dbp_rtl"+str(limit)+".txt"
+        newfilename = "dbp_rtl"+str(len(molecules_list))+".txt"
         output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/"+newfilename, "w")
     else:
-        molecules_file = codecs.open(file_name, "r")
         endpoint = "https://dydra.com/collarad/drugbank/sparql"
-        newfilename = "drugbank_rtl"+str(limit)+".txt"
+        newfilename = "drugbank_rtl"+str(len(molecules_list))+".txt"
         output_file = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/"+newfilename, "w")
 
     query_template = """
-        SELECT ?p ?o WHERE { <%s> ?p ?o . }
-    """
+            SELECT ?p ?o WHERE { %s ?p ?o . }
+        """
     endpoint = SPARQLWrapper(endpoint)
     endpoint.setReturnFormat(JSON)
     i = 0
-    for line in molecules_file:
+    for line in molecules_list:
         # create RTL for each subject
         rtl = {}
         rtl['head'] = {}
@@ -202,9 +172,15 @@ def load_drugs_dbp(file_name, isDbp, limit):
         else:
             rtl['head']['row'] = False
         rtl['tail'] = []
-        #print query_template % line.strip()
-        endpoint.setQuery(query_template % line.strip())
-        results = endpoint.query().convert()
+        # print query_template % line.strip()
+        results = None
+        while results is None:
+            try:
+                endpoint.setQuery(query_template % line.strip())
+                results = endpoint.query().convert()
+            except:
+                print "reconnect"
+                pass
         for result in results['results']['bindings']:
             pv_pair = {}
             pv_pair['prop'] = result['p']['value']
@@ -212,37 +188,46 @@ def load_drugs_dbp(file_name, isDbp, limit):
             rtl['tail'].append(pv_pair)
         json.dump(rtl, output_file)
         output_file.write("\n")
-        print i
         i += 1
-        if i==limit:
-            break
-
-    molecules_file.close()
+        print i
     output_file.close()
 
-def load_and_run():
-    dbp_rtls_path = "/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl.txt"
-    drugbank_rtl_path = "/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl.txt"
 
-    dbp_rtls = []
-    drugbank_rtls = []
-    with codecs.open(dbp_rtls_path, "r") as f:
-        for line in f:
-            newline = line.replace('\"row\": true', '\"row\":True')
-            dbp_rtls.append(eval(newline))
+def load_drugs(file_name1, filen_name2, limit):
+    """
 
-    with codecs.open(drugbank_rtl_path, "r") as f2:
-        for line in f2:
-            newline = line.replace('\"row\": false', '\"row\":False')
-            drugbank_rtls.append(eval(newline))
+    :param dbp_file: molecules in dbpedia drugs dump
+    :param isRow: whether the dump is dbp or db
+    :return: reference to the files with RTLs
+    """
+    matching_molecules_dbp = codecs.open(file_name1, "r").readlines()
+    matching_molecules_drugbank = codecs.open(filen_name2, "r").readlines()
 
-    # prepare similarity matrix
-    similarity_matrix = []
-    with open("/Users/mikhailgalkin/Downloads/gades_drugs/results_gades.txt") as matrix:
-        for i in xrange(0,10):
-            matrix_line = matrix.readline().split("\t")[:10]
-            similarity_matrix.append([eval(n) for n in matrix_line])
-    print similarity_matrix
+    molecules_dbp=codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_dbp_gades.txt","r").readlines()
+    molecules_drugbank = codecs.open("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_db_gades.txt","r").readlines()
+
+    # sample a limit of molecules
+    num_molecules = xrange(len(molecules_dbp))
+    chosen_indices = random.sample(num_molecules, limit)
+
+    # get the molecule uris from files
+    chosen_dbp = []
+    chosen_drugbank = []
+    for i in chosen_indices:
+        uri = "<"+molecules_dbp[i].strip()+">"
+        chosen_dbp.append(uri)
+        # find a line in matching dbp
+        for index in xrange(len(matching_molecules_dbp)):
+            # use index in matching molecules drugbank
+            if matching_molecules_dbp[index].strip()==uri:
+                chosen_drugbank.append(matching_molecules_drugbank[index].strip())
+                break
+
+
+        #chosen_drugbank.append(molecules_drugbank[i])
+
+    queryMolecules(chosen_dbp, True)
+    queryMolecules(chosen_drugbank, False)
 
 def testPerfectOperator():
     dbp_source = [rtl4, rtl1, rtl3]
@@ -289,8 +274,10 @@ def prepareGoldStandardForPrecRec(path1, path2):
         uris2 = f2.readlines()
 
     for i in xrange(len(uris1)):
-        name1 = re.sub('[<>]', '', uris1[i].strip())
-        name2 = re.sub('[<>]', '', uris2[i].strip())
+        # name1 = re.sub('[<>]', '', uris1[i].strip())
+        # name2 = re.sub('[<>]', '', uris2[i].strip())
+        name1 = uris1[i].strip()
+        name2 = uris2[i].strip()
         goldStandardPairs.append((name1,name2))
 
 
@@ -315,7 +302,7 @@ def testSimHashJoin(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    simHashOp = SimilarityHashJoin(threshold)
+    simHashOp = SimilarityHashJoin(threshold, simfunction)
     simHashOp.execute_new(dbp_rtls, drugbank_rtls)
 
     # for (a,b) in simHashOp.results:
@@ -357,10 +344,13 @@ def testSymmetricSimHashJoin(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    symSimOp = SymmetricSimilarityHashJoin(threshold)
+    log = codecs.open("symsim.log","w")
+    symSimOp = SymmetricSimilarityHashJoin(threshold, simfunction)
     for s1 in dbp_rtls:
         for s2 in drugbank_rtls:
-            symSimOp.execute(s1, s2)
+            if len(s1['tail'])>0 and len(s2['tail'])>0:
+                symSimOp.execute(s1, s2)
+                log.write(str(len(symSimOp.results)))
 
     # for a, b in symSimOp.results:
     #     print "Identified joins: ", a, " --- ", b
@@ -391,17 +381,17 @@ def testMFuhsionPerfect(path1, path2):
     dbp_rtls = []
     drugbank_rtls = []
     print "Reading", path1
-    with codecs.open(dbp_rtls_path, "r") as f:
+    with codecs.open(dbp_rtls_path, "r", encoding='utf-8') as f:
         for line in f:
-            newline = line.replace('\"row\": true', '\"row\":True')
+            newline = line.decode("utf-8").replace('\"row\": true', '\"row\":True')
             dbp_rtls.append(eval(newline))
     print "Reading", path2
-    with codecs.open(drugbank_rtl_path, "r") as f2:
+    with codecs.open(drugbank_rtl_path, "r", encoding='utf-8') as f2:
         for line in f2:
-            newline = line.replace('\"row\": false', '\"row\":False')
+            newline = line.decode("utf-8").replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    perfectOp = MFuhsionPerfect(threshold)
+    perfectOp = MFuhsionPerfect(threshold, simfunction)
 
     perfectOp.execute_new(dbp_rtls, drugbank_rtls)
     # for a,b in perfectOp.toBeJoined:
@@ -423,17 +413,27 @@ def testMFuhsionPerfect(path1, path2):
     print "Recall", recall
     print "-----"
 
-#load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_dbp_gades.txt", True, 1568)
+"""
+    DBPEDIA - DRUGBANK EXPERIMENT
+"""
+#load_drugs("/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_dbpedia.txt", "/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_drugbank.txt", 200)
 #load_drugs_dbp("/Users/mikhailgalkin/Downloads/gades_drugs/molecules_db_gades.txt", False, 1568)
-prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_dbpedia.txt","/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_drugbank.txt")
-random.seed(9)
-testMFuhsion("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
-testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
-testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
-testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+# prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_dbpedia.txt","/Users/mikhailgalkin/Downloads/gades_drugs/subjects_drugs_drugbank.txt")
+# random.seed(9)
+# testMFuhsion("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+# testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+# testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+# testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_drugs/dbp_rtl100.txt","/Users/mikhailgalkin/Downloads/gades_drugs/drugbank_rtl100.txt")
+#
 
-
-
-
-
+"""
+    DBPEDIA PEOPLE EXPERIMENT
+"""
+#loadSplittedDumps("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
+prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
+testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#
 
