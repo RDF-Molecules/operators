@@ -1,6 +1,7 @@
 from SPARQLWrapper import SPARQLWrapper, JSON, POST, N3
 import json
 import codecs
+import random
 
 import sys
 reload(sys)
@@ -62,3 +63,40 @@ def loadSplittedDumps(filepath_0, filepath_2):
 
     queryDBpediaSplitted(molecules0, True)
     queryDBpediaSplitted(molecules2, False)
+
+
+def sampleDBP_Wikidata(filename, sampleSize):
+    with codecs.open(filename, "r") as gs:
+        subs_dbp = []
+        subs_wikidata = []
+        for line in gs:
+            subs = line.split(" ")
+            subs_dbp.append(subs[0])
+            subs_wikidata.append(subs[2])
+
+    num_subs = xrange(len(subs_dbp))
+    chosen_indices = random.sample(num_subs, sampleSize)
+
+    # save chosen indices
+    with codecs.open("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/indices"+str(sampleSize)+".txt", "w") as indexfile:
+        sorted_indices = sorted(chosen_indices)
+        for index in sorted_indices:
+            indexfile.write("%i\n"%index)
+
+    # create files with sampled entities
+    dbp_dump = "dbp_list"+str(sampleSize)+".txt"
+    with codecs.open("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/"+dbp_dump, "w") as dbp:
+        for index in chosen_indices:
+            dbp.write(subs_dbp[index]+"\n")
+
+    wd_dump = "wd_list"+str(sampleSize)+".txt"
+    with codecs.open("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/"+wd_dump, "w") as wd:
+        for index in chosen_indices:
+            wd.write(subs_wikidata[index]+"\n")
+
+    # create a gold standard for this sample size
+    with codecs.open("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/goldStandard"+str(sampleSize)+".txt", "w") as newgs:
+        for index in chosen_indices:
+            newgs.write("%s,%s\n" % (subs_dbp[index], subs_wikidata[index]))
+
+

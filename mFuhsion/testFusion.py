@@ -13,7 +13,9 @@ import random
 from SPARQLWrapper import SPARQLWrapper, JSON, POST, N3
 import json
 import re
-from queryModule import loadSplittedDumps
+from time import time
+import os
+from queryModule import loadSplittedDumps, sampleDBP_Wikidata
 
 rtl1 = {
     "head": {"uri": "http://dbpedia.org/resource/Drug1",
@@ -96,7 +98,7 @@ dbpedia3(rtl4)       sim7               sim8                sim9
 similarity = [[0.8, 0.6, 0.5],
               [0.76, 0.54, 0.32],
               [0.9, 0.4, 0.83]]
-threshold = 0.1
+threshold = 0.5
 nonBlockingGoldStandard = []
 simfunction = "gades"
 
@@ -121,13 +123,20 @@ def testMFuhsion(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    log = codecs.open("mfusion.log","w")
+    log = codecs.open(os.path.dirname(path1)+"/mfusion.log", "w")
     fusion_op = MFuhsion(threshold, simfunction)
+    timeCheck = 0
+    startTime = time()
     for dbe in dbp_rtls:
         for wde in drugbank_rtls:
             if len(dbe['tail']) >0 and len(wde['tail'])>0:
                 fusion_op.execute_new(dbe, wde)
-                log.write(str(len(fusion_op.toBeJoined))+" total sim calls: "+str(fusion_op.numSimCalls)+"\n")
+
+                finishTime = time()
+                totalTime = finishTime - startTime
+                if int(totalTime) > timeCheck:
+                    timeCheck += 1
+                    log.write(str(timeCheck)+" "+str(len(fusion_op.toBeJoined))+"\n")
 
     # for a,b in fusion_op.toBeJoined:
     #     print "Identified joins:", a, " --- ", b
@@ -344,13 +353,20 @@ def testSymmetricSimHashJoin(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    log = codecs.open("symsim.log","w")
+    log = codecs.open(os.path.dirname(path1) + "/symsim.log", "w")
     symSimOp = SymmetricSimilarityHashJoin(threshold, simfunction)
+    timeCheck = 0
+    startTime = time()
     for s1 in dbp_rtls:
         for s2 in drugbank_rtls:
             if len(s1['tail'])>0 and len(s2['tail'])>0:
                 symSimOp.execute(s1, s2)
-                log.write(str(len(symSimOp.results)))
+
+                finishTime = time()
+                totalTime = finishTime - startTime
+                if int(totalTime) > timeCheck:
+                    timeCheck += 1
+                    log.write(str(timeCheck) + " " + str(len(symSimOp.results)) + "\n")
 
     # for a, b in symSimOp.results:
     #     print "Identified joins: ", a, " --- ", b
@@ -431,9 +447,13 @@ def testMFuhsionPerfect(path1, path2):
 """
 #loadSplittedDumps("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
 prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
-testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
 #testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
-testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
-testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
 #
 
+"""
+    DBPEDIA WIKIDATA EXPERIMENT
+"""
+#sampleDBP_Wikidata("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/trueGoldStandard.nt", 20000)
