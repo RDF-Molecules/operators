@@ -447,7 +447,7 @@ def testMFuhsionPerfect(path1, path2):
 """
 #loadSplittedDumps("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
 prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
-#testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
 #testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
 #testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
 #testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
