@@ -73,7 +73,7 @@ class SimilarityHashJoin(object):
                         simmatrix[i][j] = sim_score
 
             # run hungarian algorithm
-            cost_matrix = make_cost_matrix(simmatrix, lambda cost: sys.maxsize - cost)
+            cost_matrix = make_cost_matrix(simmatrix, lambda cost: 1.0 - cost)
             m = Munkres()
             perfect_indexes = m.compute(cost_matrix)
             for a,b in perfect_indexes:

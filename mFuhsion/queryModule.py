@@ -158,4 +158,4 @@ def loadDbpWikidata(filepath1, filepath2):
     queryDBP_Wikidata(filepath1, True)
     queryDBP_Wikidata(filepath2, False)
 
-loadDbpWikidata("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/100/dbp_list100.txt","/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/100/wd_list100.txt")
+#loadDbpWikidata("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/100/dbp_list100.txt","/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/100/wd_list100.txt")

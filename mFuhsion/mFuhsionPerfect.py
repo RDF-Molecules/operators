@@ -58,7 +58,7 @@ class MFuhsionPerfect:
 
     def insertIntoTable(self, list_rtls, table):
         for rtl in list_rtls:
-            if (rtl['head']['uri'] not in table) and (len(rtl['tail'])>0):
+            if rtl['head']['uri'] not in table:
                 table.append(rtl['head']['uri'])
 
     def probeTables(self, left_table, right_table):
@@ -100,7 +100,7 @@ class MFuhsionPerfect:
             # pruning
             simmatrix[simmatrix < self.threshold] = 0
             # run hungarian algorithm
-            cost_matrix = make_cost_matrix(simmatrix.tolist(), lambda cost: sys.maxsize-cost)
+            cost_matrix = make_cost_matrix(simmatrix.tolist(), lambda cost: 1.0 - cost)
             m = Munkres()
             perfect_indices = m.compute(cost_matrix)
             for a,b in perfect_indices:

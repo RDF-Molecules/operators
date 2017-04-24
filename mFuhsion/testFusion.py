@@ -98,11 +98,12 @@ dbpedia3(rtl4)       sim7               sim8                sim9
 similarity = [[0.8, 0.6, 0.5],
               [0.76, 0.54, 0.32],
               [0.9, 0.4, 0.83]]
-threshold = 0.5
+threshold = 0.2
 nonBlockingGoldStandard = []
 simfunction = "gades"
+timelimit = 50
 
-def testMFuhsion(path1, path2):
+def testMFuhsion(given_threshold, path1, path2):
     dbp_source = [rtl1, rtl3, rtl4]
     wd_source = [rtl2, rtl5, rtl6]
 
@@ -123,10 +124,12 @@ def testMFuhsion(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    log = codecs.open(os.path.dirname(path1)+"/mfusion.log", "w")
+    log = codecs.open(os.path.dirname(path1)+"/mfusionT"+str(given_threshold)+".log", "w")
     fusion_op = MFuhsion(threshold, simfunction)
     timeCheck = 0
+    stopTime = 0
     startTime = time()
+    stop = False
     for dbe in dbp_rtls:
         for wde in drugbank_rtls:
             if len(dbe['tail']) >0 and len(wde['tail'])>0:
@@ -134,9 +137,16 @@ def testMFuhsion(path1, path2):
 
                 finishTime = time()
                 totalTime = finishTime - startTime
-                if int(totalTime) > timeCheck:
+                print totalTime, timeCheck, str(len(fusion_op.toBeJoined))
+                while int(totalTime) > timeCheck:
                     timeCheck += 1
+                    print totalTime, timeCheck, str(len(fusion_op.toBeJoined))
                     log.write(str(timeCheck)+" "+str(len(fusion_op.toBeJoined))+"\n")
+                if timeCheck > timelimit:
+                    stop = True
+                    break
+        if stop:
+            break
 
     # for a,b in fusion_op.toBeJoined:
     #     print "Identified joins:", a, " --- ", b
@@ -289,6 +299,14 @@ def prepareGoldStandardForPrecRec(path1, path2):
         name2 = uris2[i].strip()
         goldStandardPairs.append((name1,name2))
 
+def prepareGSForExp2(path):
+    with codecs.open(path) as f:
+        for line in f:
+            name1 = line.split(">,<")[0] + ">"
+            name2 = "<"+line.split(">,<")[1].strip()
+            goldStandardPairs.append((name1, name2))
+
+
 
 def testSimHashJoin(path1, path2):
     dbp_source = [rtl4, rtl1, rtl3]
@@ -353,10 +371,11 @@ def testSymmetricSimHashJoin(path1, path2):
             newline = line.replace('\"row\": false', '\"row\":False')
             drugbank_rtls.append(eval(newline))
     print "Executing Join"
-    log = codecs.open(os.path.dirname(path1) + "/symsim.log", "w")
+    log = codecs.open(os.path.dirname(path1) + "/symsimT"+str(threshold)+".log", "w")
     symSimOp = SymmetricSimilarityHashJoin(threshold, simfunction)
     timeCheck = 0
     startTime = time()
+    stop = False
     for s1 in dbp_rtls:
         for s2 in drugbank_rtls:
             if len(s1['tail'])>0 and len(s2['tail'])>0:
@@ -367,6 +386,11 @@ def testSymmetricSimHashJoin(path1, path2):
                 if int(totalTime) > timeCheck:
                     timeCheck += 1
                     log.write(str(timeCheck) + " " + str(len(symSimOp.results)) + "\n")
+                    if timeCheck == timelimit:
+                        stop = True
+                        break
+        if stop:
+            break
 
     # for a, b in symSimOp.results:
     #     print "Identified joins: ", a, " --- ", b
@@ -446,14 +470,17 @@ def testMFuhsionPerfect(path1, path2):
     DBPEDIA PEOPLE EXPERIMENT
 """
 #loadSplittedDumps("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
-prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
-testMFuhsion("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
-#testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
-#testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
-#testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0_rtl500.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2_rtl500.txt")
+#prepareGoldStandardForPrecRec("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump0_sorted.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/splitted_dump2_sorted.txt")
+#testMFuhsion(threshold,"/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0test_sample3.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2test_sample3.txt")
+#testSymmetricSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0test_sample3.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2test_sample3.txt")
+#testMFuhsionPerfect("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0test.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2test.txt")
+#testSimHashJoin("/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp0test.txt","/Users/mikhailgalkin/Downloads/gades_dbpedia_people/dbp2test.txt")
 #
 
 """
     DBPEDIA WIKIDATA EXPERIMENT
 """
 #sampleDBP_Wikidata("/Users/mikhailgalkin/Downloads/gades_wd_dbp_people/trueGoldStandard.nt", 20000)
+prepareGSForExp2("/Users/mikhailgalkin/git/Test-DataSets/DBpedia-WikiData/operators_evaluation/500/goldStandard500.txt")
+testMFuhsionPerfect("/Users/mikhailgalkin/git/Test-DataSets/DBpedia-WikiData/operators_evaluation/500/dbp_rtl500.txt","/Users/mikhailgalkin/git/Test-DataSets/DBpedia-WikiData/operators_evaluation/500/wikidata_rtl500.txt")
+testSimHashJoin("/Users/mikhailgalkin/git/Test-DataSets/DBpedia-WikiData/operators_evaluation/500/dbp_rtl500.txt","/Users/mikhailgalkin/git/Test-DataSets/DBpedia-WikiData/operators_evaluation/500/wikidata_rtl500.txt")

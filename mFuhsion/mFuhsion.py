@@ -63,8 +63,9 @@ class MFuhsion():
                 start_sim_time = time()
 
                 simscore = self.sim(rtl, existingUri)
+                print str(simscore)+"\n"
                 self.numSimCalls += 1
-                print self.numSimCalls
+                #print self.numSimCalls
 
                 finish_sim_time = time()
                 self.total_sim_time += finish_sim_time - start_sim_time
@@ -76,7 +77,7 @@ class MFuhsion():
                     self.toBeJoined.append((rtl, existingUri))
 
     def sim(self, uri1, uri2):
-        print "sim call!"
+        #print "sim call!"
         url = "http://localhost:9000/similarity/"+self.simfunction+"?minimal=true"
         data = {"tasks": [{"uri1": uri1[1:-1], "uri2": uri2[1:-1]}]}
         headers = {'content-type':"application/json"}
