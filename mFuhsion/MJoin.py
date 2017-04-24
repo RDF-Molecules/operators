@@ -13,6 +13,7 @@ class MJoin(object):
         self.main_tables = []
         self.auxiliary_tables = []
         self.results = []
+        self.numComps = 0
 
         for i in xrange(numstreams):
             table = []
@@ -62,6 +63,8 @@ class MJoin(object):
         for table in reversed(self.auxiliary_tables):
             # probe against an existing tuple in the auxiliary table
             for existing_tuple in table:
+                self.numComps += 1
+                print "Comparing ", tup, " with ", existing_tuple
                 if existing_tuple['x'] == tup['x']:
                     existing_tuple['y'].append(tup['y'])
                     if len(existing_tuple['y'])==self.numstreams:
@@ -69,12 +72,18 @@ class MJoin(object):
                         self.results.append(existing_tuple)
                         print "Result ", existing_tuple
                         # remove intermediate result from the current table
-                        table.remove(existing_tuple)
+                        #table.remove(existing_tuple)
+                        existing_tuple['delete']=True
                     else:
                         # length increased -> move to another table of higher magnitude
                         self.auxiliary_tables[len(existing_tuple)-2].append(existing_tuple)
                         # remove intermediate result from the current table
-                        table.remove(existing_tuple)
+                        #table.remove(existing_tuple)
+                        existing_tuple['delete'] = True
+            #print "Aux Table before clear ", table
+            self.clearAuxTable(table)
+            #print "Aux Table after clear ", table
+
 
     def probeMain(self, tup, current_index):
         # obtain a list of tables without own table
@@ -85,15 +94,23 @@ class MJoin(object):
             table = self.main_tables[index]
             # probe against an existing tuple in one of the main tables
             for existing_tuple in table:
+                self.numComps += 1
+                print "Comparing ", tup, " with ", existing_tuple
                 if existing_tuple['x']==tup['x']:
                     # TODO change the data structure of intermediate results
-                    intermediate_tuple={'x':tup['x'], 'y':[existing_tuple['y'], tup['y']]}
+                    intermediate_tuple={'x':tup['x'], 'y':[existing_tuple['y'], tup['y']], 'delete':False}
+                    print "New intermediate result ", intermediate_tuple
                     # support for binary joins
                     if self.numauxiliary==0:
                         self.results.append(intermediate_tuple)
                     else:
                         # index 0 denotes a table with intermediate results after 2 matches
                         self.auxiliary_tables[0].append(intermediate_tuple)
+
+    def clearAuxTable(self, table):
+        for element in table:
+            if element['delete']:
+                table.remove(element)
 
 
 q1 = Queue()
@@ -110,6 +127,6 @@ q3.put({'x':3, 'y':2})
 q3.put({'x':2, 'y':3})
 mjoin = MJoin(3)
 mjoin.execute(q1, q2, q3)
-
+print "Num comparisons ", mjoin.numComps
 
 
