@@ -14,6 +14,7 @@ class MJoin(object):
         self.auxiliary_tables = []
         self.results = []
         self.numComps = 0
+        self.computedPairs = []
 
         for i in xrange(numstreams):
             table = []
@@ -77,6 +78,10 @@ class MJoin(object):
                 self.numComps += 1
                 print "Comparing ", tup, " with ", existing_tuple
 
+                # add to computedPairs
+                for entry in existing_tuple['tuple']:
+                    self.computedPairs.append((tup, entry))
+
                 join = True
                 for entry in existing_tuple['tuple']:
                     for var in self.vars:
@@ -112,24 +117,32 @@ class MJoin(object):
             table = self.main_tables[index]
             # probe against an existing tuple in one of the main tables
             for existing_tuple in table:
-                self.numComps += 1
-                print "Comparing ", tup, " with ", existing_tuple
+                if (tup, existing_tuple) in self.computedPairs:
+                    continue
+                elif (existing_tuple, tup) in self.computedPairs:
+                    continue
+                else:
+                    self.numComps += 1
+                    print "Comparing ", tup, " with ", existing_tuple
 
-                join = True
-                for var in self.vars:
-                    if existing_tuple[var]!=tup[var]:
-                        join = False
-                        break
-                if join:
-                    # TODO change the data structure of intermediate results
-                    intermediate_tuple={'tuple': [tup, existing_tuple], 'delete':False}
-                    print "New intermediate result ", intermediate_tuple
-                    # support for binary joins
-                    if self.numauxiliary==0:
-                        self.results.append(intermediate_tuple)
-                    else:
-                        # index 0 denotes a table with intermediate results after 2 matches
-                        self.auxiliary_tables[0].append(intermediate_tuple)
+                    # add to computedPairs
+                    self.computedPairs.append((tup, existing_tuple))
+
+                    join = True
+                    for var in self.vars:
+                        if existing_tuple[var]!=tup[var]:
+                            join = False
+                            break
+                    if join:
+                        # TODO change the data structure of intermediate results
+                        intermediate_tuple={'tuple': [tup, existing_tuple], 'delete':False}
+                        print "New intermediate result ", intermediate_tuple
+                        # support for binary joins
+                        if self.numauxiliary==0:
+                            self.results.append(intermediate_tuple)
+                        else:
+                            # index 0 denotes a table with intermediate results after 2 matches
+                            self.auxiliary_tables[0].append(intermediate_tuple)
 
     def clearAuxTable(self, table):
         for element in table:
