@@ -23,6 +23,10 @@ class MJoin(object):
             auxtable = []
             self.auxiliary_tables.append(auxtable)
 
+    def setVars(self, vars):
+        # must be an array, e.g., ['x']
+        self.vars = vars
+
     def execute(self, *args):
         try:
             if self.numstreams!=len(args):
@@ -42,11 +46,18 @@ class MJoin(object):
             raise
 
     def probeAndInsert(self, streams):
-        for k in xrange(3):
+        stops = [False for x in xrange(len(streams))]
+        while any(x==False for x in stops):
+            # for index in xrange(len(streams)):
+            #     if streams[index].get(False)=="EOF":
+            #         stops[index] = True
             for i in xrange(len(streams)):
                 q = streams[i]
                 if not q.empty():
                     tuple1 = q.get(False)
+                    if tuple1=="EOF":
+                        stops[i] = True
+                        break
                     # insert
                     self.main_tables[i].append(tuple1)
                     # probe against aux tables
@@ -65,9 +76,16 @@ class MJoin(object):
             for existing_tuple in table:
                 self.numComps += 1
                 print "Comparing ", tup, " with ", existing_tuple
-                if existing_tuple['x'] == tup['x']:
-                    existing_tuple['y'].append(tup['y'])
-                    if len(existing_tuple['y'])==self.numstreams:
+
+                join = True
+                for entry in existing_tuple['tuple']:
+                    for var in self.vars:
+                        if entry[var] != tup[var]:
+                            join = False
+                            break
+                if join:
+                    existing_tuple['tuple'].append(tup)
+                    if len(existing_tuple['tuple'])==self.numstreams:
                         # max len, produce result
                         self.results.append(existing_tuple)
                         print "Result ", existing_tuple
@@ -96,9 +114,15 @@ class MJoin(object):
             for existing_tuple in table:
                 self.numComps += 1
                 print "Comparing ", tup, " with ", existing_tuple
-                if existing_tuple['x']==tup['x']:
+
+                join = True
+                for var in self.vars:
+                    if existing_tuple[var]!=tup[var]:
+                        join = False
+                        break
+                if join:
                     # TODO change the data structure of intermediate results
-                    intermediate_tuple={'x':tup['x'], 'y':[existing_tuple['y'], tup['y']], 'delete':False}
+                    intermediate_tuple={'tuple': [tup, existing_tuple], 'delete':False}
                     print "New intermediate result ", intermediate_tuple
                     # support for binary joins
                     if self.numauxiliary==0:
@@ -110,6 +134,7 @@ class MJoin(object):
     def clearAuxTable(self, table):
         for element in table:
             if element['delete']:
+                # print 'flusing', element
                 table.remove(element)
 
 
@@ -119,14 +144,20 @@ q3 = Queue()
 q1.put({'x':1, 'y':2})
 q1.put({'x':2, 'y':1})
 q1.put({'x':3, 'y':3})
+q1.put("EOF")
 q2.put({'x':2, 'y':2})
 q2.put({'x':1, 'y':1})
 q2.put({'x':3, 'y':1})
+q2.put("EOF")
 q3.put({'x':1, 'y':3})
 q3.put({'x':3, 'y':2})
 q3.put({'x':2, 'y':3})
+q3.put("EOF")
 mjoin = MJoin(3)
+mjoin.setVars(['x'])
 mjoin.execute(q1, q2, q3)
 print "Num comparisons ", mjoin.numComps
+print "Num results", len(mjoin.results)
+print "Results", mjoin.results
 
 
