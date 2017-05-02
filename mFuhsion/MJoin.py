@@ -89,17 +89,19 @@ class MJoin(object):
                             join = False
                             break
                 if join:
-                    existing_tuple['tuple'].append(tup)
-                    if len(existing_tuple['tuple'])==self.numstreams:
+                    newtuple = dict.copy(existing_tuple)
+                    newtuple['tuple'].append(tup)
+                    if len(newtuple['tuple'])==self.numstreams:
                         # max len, produce result
-                        self.results.append(existing_tuple)
-                        print "Result ", existing_tuple
+                        self.results.append(newtuple)
+                        print "Result ", newtuple
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
                         existing_tuple['delete']=True
                     else:
                         # length increased -> move to another table of higher magnitude
-                        self.auxiliary_tables[len(existing_tuple)-2].append(existing_tuple)
+                        print "New intermediate result", newtuple
+                        self.auxiliary_tables[len(newtuple['tuple'])-2].append(newtuple)
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
                         existing_tuple['delete'] = True
@@ -154,21 +156,31 @@ class MJoin(object):
 q1 = Queue()
 q2 = Queue()
 q3 = Queue()
+q4 = Queue()
 q1.put({'x':1, 'y':2})
 q1.put({'x':2, 'y':1})
 q1.put({'x':3, 'y':3})
+q1.put({'x':4, 'y':3})
 q1.put("EOF")
 q2.put({'x':2, 'y':2})
 q2.put({'x':1, 'y':1})
 q2.put({'x':3, 'y':1})
+q2.put({'x':4, 'y':2})
 q2.put("EOF")
 q3.put({'x':1, 'y':3})
 q3.put({'x':3, 'y':2})
 q3.put({'x':2, 'y':3})
+q3.put({'x':4, 'y':4})
 q3.put("EOF")
-mjoin = MJoin(3)
+q4.put({'x':4, 'y':1})
+q4.put({'x':3, 'y':4})
+q4.put({'x':2, 'y':4})
+q4.put({'x':1, 'y':4})
+q4.put("EOF")
+
+mjoin = MJoin(4)
 mjoin.setVars(['x'])
-mjoin.execute(q1, q2, q3)
+mjoin.execute(q1, q2, q3, q4)
 print "Num comparisons ", mjoin.numComps
 print "Num results", len(mjoin.results)
 print "Results", mjoin.results
