@@ -4,6 +4,7 @@ import operator
 import sys
 import random
 from multiprocessing import Queue
+from baseline_ops.DataStructures import HashTable
 
 class MJoin(object):
 
@@ -17,7 +18,7 @@ class MJoin(object):
         self.computedPairs = []
 
         for i in xrange(numstreams):
-            table = []
+            table = HashTable()
             self.main_tables.append(table)
 
         for i in xrange(self.numauxiliary):
@@ -59,12 +60,18 @@ class MJoin(object):
                     if tuple1=="EOF":
                         stops[i] = True
                         break
-                    # insert
-                    self.main_tables[i].append(tuple1)
+
+                    # insert step
+                    resource = ""
+                    for var in self.vars:
+                        resource = resource + str(tuple1[var])
+                    ht_index = hash(resource) % self.main_tables[i].size
+                    self.main_tables[i].insertRecord(ht_index, tuple1)
+
                     # probe against aux tables
                     self.probeAux(tuple1)
                     # probe against other tables
-                    self.probeMain(tuple1,i)
+                    self.probeMain(tuple1, i)
         self.results.put("EOF")
 
     def probeAux(self, tup):
@@ -116,11 +123,19 @@ class MJoin(object):
         # obtain a list of tables without own table
         tables_list = list(xrange(self.numstreams))
         del tables_list[current_index]
+
+        # find a hash index to compare with
+        resource = ""
+        for var in self.vars:
+            resource = resource + str(tup[var])
+        ht_index = hash(resource) % self.main_tables[0].size
+
         # probing sequence is 0..n
         for index in tables_list:
             table = self.main_tables[index]
+
             # probe against an existing tuple in one of the main tables
-            for existing_tuple in table:
+            for existing_tuple in table.partitions[ht_index].records:
                 if (tup, existing_tuple) in self.computedPairs:
                     continue
                 elif (existing_tuple, tup) in self.computedPairs:
@@ -138,7 +153,6 @@ class MJoin(object):
                             join = False
                             break
                     if join:
-                        # TODO change the data structure of intermediate results
                         intermediate_tuple={'tuple': [tup, existing_tuple], 'delete':False}
                         print "New intermediate result ", intermediate_tuple
                         # support for binary joins
