@@ -12,7 +12,7 @@ class MJoin(object):
         self.numauxiliary = numstreams - 2
         self.main_tables = []
         self.auxiliary_tables = []
-        self.results = []
+        self.results = Queue()
         self.numComps = 0
         self.computedPairs = []
 
@@ -65,6 +65,7 @@ class MJoin(object):
                     self.probeAux(tuple1)
                     # probe against other tables
                     self.probeMain(tuple1,i)
+        self.results.put("EOF")
 
     def probeAux(self, tup):
         # probing sequence is 0..n
@@ -93,7 +94,8 @@ class MJoin(object):
                     newtuple['tuple'].append(tup)
                     if len(newtuple['tuple'])==self.numstreams:
                         # max len, produce result
-                        self.results.append(newtuple)
+                        #self.results.append(newtuple)
+                        self.results.put(newtuple)
                         print "Result ", newtuple
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
@@ -141,7 +143,8 @@ class MJoin(object):
                         print "New intermediate result ", intermediate_tuple
                         # support for binary joins
                         if self.numauxiliary==0:
-                            self.results.append(intermediate_tuple)
+                            #self.results.append(intermediate_tuple)
+                            self.results.put(intermediate_tuple)
                         else:
                             # index 0 denotes a table with intermediate results after 2 matches
                             self.auxiliary_tables[0].append(intermediate_tuple)
@@ -182,7 +185,16 @@ mjoin = MJoin(4)
 mjoin.setVars(['x'])
 mjoin.execute(q1, q2, q3, q4)
 print "Num comparisons ", mjoin.numComps
-print "Num results", len(mjoin.results)
-print "Results", mjoin.results
+print "Results:"
+count = 0
+while True:
+    try:
+        print mjoin.results.get(False)
+        count +=1
+    except:
+        break
+
+print "Num results", count-1
+
 
 
