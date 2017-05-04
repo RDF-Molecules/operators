@@ -35,7 +35,7 @@ class MJoin(object):
         try:
             if self.numstreams!=len(args):
                 raise ValueError
-            print "I have ", len(args), " arguments"
+            print "MJoin: I have ", len(args), " arguments"
 
             # get input streams with tuples
             streams = []
@@ -92,7 +92,7 @@ class MJoin(object):
             # probe against an existing tuple in the auxiliary table in the corresponding partition
             for existing_tuple in table.partitions[ht_index].records:
                 self.numComps += 1
-                print "Comparing ", tup, " with ", existing_tuple
+                #print "Comparing ", tup, " with ", existing_tuple
 
                 # add to computedPairs
                 for entry in existing_tuple['tuple']:
@@ -111,13 +111,13 @@ class MJoin(object):
                         # max len, produce result
                         #self.results.append(newtuple)
                         self.results.put(newtuple)
-                        print "Result ", newtuple
+                        #print "Result ", newtuple
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
                         existing_tuple['delete']=True
                     else:
                         # length increased -> move to another table of higher magnitude
-                        print "New intermediate result", newtuple
+                        #print "New intermediate result", newtuple
                         #self.auxiliary_tables[len(newtuple['tuple'])-2].append(newtuple)
                         self.auxiliary_tables[len(newtuple['tuple'])-2].insertRecord(ht_index, newtuple)
                         # remove intermediate result from the current table
@@ -151,7 +151,7 @@ class MJoin(object):
                     continue
                 else:
                     self.numComps += 1
-                    print "Comparing ", tup, " with ", existing_tuple
+                    #print "Comparing ", tup, " with ", existing_tuple
 
                     # add to computedPairs
                     self.computedPairs.append((tup, existing_tuple))
@@ -163,7 +163,7 @@ class MJoin(object):
                             break
                     if join:
                         intermediate_tuple={'tuple': [tup, existing_tuple], 'delete':False}
-                        print "New intermediate result ", intermediate_tuple
+                        #print "New intermediate result ", intermediate_tuple
                         # support for binary joins
                         if self.numauxiliary==0:
                             #self.results.append(intermediate_tuple)
