@@ -5,6 +5,7 @@ import sys
 import random
 from multiprocessing import Queue
 from baseline_ops.DataStructures import HashTable
+import timeit
 
 class MJoin(object):
 
@@ -22,7 +23,8 @@ class MJoin(object):
             self.main_tables.append(table)
 
         for i in xrange(self.numauxiliary):
-            auxtable = []
+            # auxtable = []
+            auxtable = HashTable()
             self.auxiliary_tables.append(auxtable)
 
     def setVars(self, vars):
@@ -49,7 +51,7 @@ class MJoin(object):
 
     def probeAndInsert(self, streams):
         stops = [False for x in xrange(len(streams))]
-        while any(x==False for x in stops):
+        while any(x is False for x in stops):
             # for index in xrange(len(streams)):
             #     if streams[index].get(False)=="EOF":
             #         stops[index] = True
@@ -80,9 +82,15 @@ class MJoin(object):
         # table with i=1 contains interim tuples joined with 3 streams, length=3
         # table with i=k contains interim tuples joined with n-1 streams, length=n-1
         # start with the highest intermediate results table -> reversed list
+
+        resource = ""
+        for var in self.vars:
+            resource = resource + str(tup[var])
+        ht_index = hash(resource) % self.auxiliary_tables[0].size
+
         for table in reversed(self.auxiliary_tables):
-            # probe against an existing tuple in the auxiliary table
-            for existing_tuple in table:
+            # probe against an existing tuple in the auxiliary table in the corresponding partition
+            for existing_tuple in table.partitions[ht_index].records:
                 self.numComps += 1
                 print "Comparing ", tup, " with ", existing_tuple
 
@@ -110,7 +118,8 @@ class MJoin(object):
                     else:
                         # length increased -> move to another table of higher magnitude
                         print "New intermediate result", newtuple
-                        self.auxiliary_tables[len(newtuple['tuple'])-2].append(newtuple)
+                        #self.auxiliary_tables[len(newtuple['tuple'])-2].append(newtuple)
+                        self.auxiliary_tables[len(newtuple['tuple'])-2].insertRecord(ht_index, newtuple)
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
                         existing_tuple['delete'] = True
@@ -161,54 +170,64 @@ class MJoin(object):
                             self.results.put(intermediate_tuple)
                         else:
                             # index 0 denotes a table with intermediate results after 2 matches
-                            self.auxiliary_tables[0].append(intermediate_tuple)
+                            #self.auxiliary_tables[0].append(intermediate_tuple)
+                            self.auxiliary_tables[0].insertRecord(ht_index, intermediate_tuple)
 
     def clearAuxTable(self, table):
-        for element in table:
-            if element['delete']:
-                # print 'flusing', element
-                table.remove(element)
+        for partition in table.partitions:
+            for element in partition.records:
+                if element['delete']:
+                    # print 'flusing', element
+                    partition.records.remove(element)
 
+def testmjoin():
+    q1 = Queue()
+    q2 = Queue()
+    q3 = Queue()
+    q4 = Queue()
+    q1.put({'x':1, 'y':2})
+    q1.put({'x':2, 'y':1})
+    q1.put({'x':3, 'y':3})
+    q1.put({'x':4, 'y':3})
+    q1.put({'x':5, 'y':2})
+    q1.put("EOF")
+    q2.put({'x':2, 'y':2})
+    q2.put({'x':1, 'y':1})
+    q2.put({'x':3, 'y':1})
+    q2.put({'x':4, 'y':2})
+    q2.put({'x':5, 'y':3})
+    q2.put("EOF")
+    q3.put({'x':1, 'y':3})
+    q3.put({'x':3, 'y':2})
+    q3.put({'x':2, 'y':3})
+    q3.put({'x':4, 'y':4})
+    q3.put({'x':5, 'y':1})
+    q3.put("EOF")
+    q4.put({'x':4, 'y':1})
+    q4.put({'x':3, 'y':4})
+    q4.put({'x':2, 'y':4})
+    q4.put({'x':1, 'y':4})
+    q1.put({'x':5, 'y':4})
+    q4.put("EOF")
 
-q1 = Queue()
-q2 = Queue()
-q3 = Queue()
-q4 = Queue()
-q1.put({'x':1, 'y':2})
-q1.put({'x':2, 'y':1})
-q1.put({'x':3, 'y':3})
-q1.put({'x':4, 'y':3})
-q1.put("EOF")
-q2.put({'x':2, 'y':2})
-q2.put({'x':1, 'y':1})
-q2.put({'x':3, 'y':1})
-q2.put({'x':4, 'y':2})
-q2.put("EOF")
-q3.put({'x':1, 'y':3})
-q3.put({'x':3, 'y':2})
-q3.put({'x':2, 'y':3})
-q3.put({'x':4, 'y':4})
-q3.put("EOF")
-q4.put({'x':4, 'y':1})
-q4.put({'x':3, 'y':4})
-q4.put({'x':2, 'y':4})
-q4.put({'x':1, 'y':4})
-q4.put("EOF")
+    mjoin = MJoin(4)
+    mjoin.setVars(['x'])
+    mjoin.execute(q1, q2, q3, q4)
+    print "Num comparisons ", mjoin.numComps
+    print "Results:"
+    count = 0
+    while True:
+        try:
+            print mjoin.results.get(False)
+            count +=1
+        except:
+            break
 
-mjoin = MJoin(4)
-mjoin.setVars(['x'])
-mjoin.execute(q1, q2, q3, q4)
-print "Num comparisons ", mjoin.numComps
-print "Results:"
-count = 0
-while True:
-    try:
-        print mjoin.results.get(False)
-        count +=1
-    except:
-        break
+    print "Num results", count-1
 
-print "Num results", count-1
+# times = min(timeit.Timer(testmjoin).repeat(repeat=3, number=100))
+# print times / 100
+testmjoin()
 
 
 
