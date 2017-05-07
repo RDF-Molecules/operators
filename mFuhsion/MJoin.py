@@ -6,6 +6,7 @@ import random
 from multiprocessing import Queue
 from baseline_ops.DataStructures import HashTable
 import timeit
+import itertools
 
 class MJoin(object):
 
@@ -110,11 +111,38 @@ class MJoin(object):
                     if len(newtuple['tuple'])==self.numstreams:
                         # max len, produce result
                         #self.results.append(newtuple)
-                        self.results.put(newtuple)
+
+                        # # transform the result into joined tuples
+                        # #non_key_vars = set(newtuple['tuple'].keys())-set(self.vars)
+                        # #key_vars = set(newtuple['tuple'].keys())
+                        # output_object = {}
+                        # for obj in newtuple['tuple']:
+                        #     for key in obj.keys():
+                        #         if key not in output_object:
+                        #             output_object[key] = set()
+                        #         output_object[key].add(obj[key])
+                        #
+                        # sets = []
+                        # for key in output_object.keys():
+                        #     sets.append(output_object[key])
+                        #
+                        # res = list(itertools.product(*sets))
+                        #
+                        # # len of the tuple in res equals to the number of keys
+                        # # generate the anapsid/mulder output
+                        # #print res
+                        # for elem in res:
+                        #     output = {}
+                        #     for i in xrange(len(output_object.keys())):
+                        #         output[output_object.keys()[i]] = elem[i]
+                        #     #print output
+                        #     self.results.put(output)
+                        self.generateOutput(newtuple)
+                        #self.results.put(newtuple)
                         #print "Result ", newtuple
                         # remove intermediate result from the current table
                         #table.remove(existing_tuple)
-                        existing_tuple['delete']=True
+                        existing_tuple['delete'] = True
                     else:
                         # length increased -> move to another table of higher magnitude
                         #print "New intermediate result", newtuple
@@ -167,7 +195,8 @@ class MJoin(object):
                         # support for binary joins
                         if self.numauxiliary==0:
                             #self.results.append(intermediate_tuple)
-                            self.results.put(intermediate_tuple)
+                            self.generateOutput(intermediate_tuple)
+                            #self.results.put(intermediate_tuple)
                         else:
                             # index 0 denotes a table with intermediate results after 2 matches
                             #self.auxiliary_tables[0].append(intermediate_tuple)
@@ -180,39 +209,93 @@ class MJoin(object):
                     # print 'flusing', element
                     partition.records.remove(element)
 
+    def generateOutput(self, newtuple):
+        # transform the result into joined tuples
+        # non_key_vars = set(newtuple['tuple'].keys())-set(self.vars)
+        # key_vars = set(newtuple['tuple'].keys())
+        output_object = {}
+        for obj in newtuple['tuple']:
+            for key in obj.keys():
+                if key not in output_object:
+                    output_object[key] = set()
+                output_object[key].add(obj[key])
+
+        sets = []
+        for key in output_object.keys():
+            sets.append(output_object[key])
+
+        res = list(itertools.product(*sets))
+
+        # len of the tuple in res equals to the number of keys
+        # generate the anapsid/mulder output
+        # print res
+        for elem in res:
+            output = {}
+            for i in xrange(len(output_object.keys())):
+                output[output_object.keys()[i]] = elem[i]
+            # print output
+            self.results.put(output)
+
+
 def testmjoin():
     q1 = Queue()
     q2 = Queue()
     q3 = Queue()
     q4 = Queue()
-    q1.put({'x':1, 'y':2})
-    q1.put({'x':2, 'y':1})
+    # q1.put({'x':1, 'y':2})
+    # q1.put({'x':2, 'y':1})
+    # q1.put({'x':3, 'y':3})
+    # q1.put({'x':4, 'y':3})
+    # q1.put({'x':5, 'y':2})
+    # q1.put("EOF")
+    # q2.put({'x':2, 'y':2})
+    # q2.put({'x':1, 'y':1})
+    # q2.put({'x':3, 'y':1})
+    # q2.put({'x':4, 'y':2})
+    # q2.put({'x':5, 'y':3})
+    # q2.put("EOF")
+    # q3.put({'x':1, 'y':3})
+    # q3.put({'x':3, 'y':2})
+    # q3.put({'x':2, 'y':3})
+    # q3.put({'x':4, 'y':4})
+    # q3.put({'x':5, 'y':1})
+    # q3.put("EOF")
+    # q4.put({'x':4, 'y':1})
+    # q4.put({'x':3, 'y':4})
+    # q4.put({'x':2, 'y':4})
+    # q4.put({'x':1, 'y':4})
+    # q1.put({'x':5, 'y':4})
+    # q4.put("EOF")
+
+
+    q1.put({'x': 1, 'y': 2, 'z':1})
+    q1.put({'x':2, 'y':1, 'z':3})
     q1.put({'x':3, 'y':3})
     q1.put({'x':4, 'y':3})
     q1.put({'x':5, 'y':2})
     q1.put("EOF")
-    q2.put({'x':2, 'y':2})
-    q2.put({'x':1, 'y':1})
+    q2.put({'x':2, 'y':1, 'z':2})
+    q2.put({'x':1, 'y':3, 'z':3})
     q2.put({'x':3, 'y':1})
     q2.put({'x':4, 'y':2})
     q2.put({'x':5, 'y':3})
     q2.put("EOF")
-    q3.put({'x':1, 'y':3})
+    q3.put({'x':1, 'y':2, 'z':4})
     q3.put({'x':3, 'y':2})
-    q3.put({'x':2, 'y':3})
+    q3.put({'x':2, 'y':1, 'z':5})
     q3.put({'x':4, 'y':4})
     q3.put({'x':5, 'y':1})
     q3.put("EOF")
-    q4.put({'x':4, 'y':1})
-    q4.put({'x':3, 'y':4})
-    q4.put({'x':2, 'y':4})
-    q4.put({'x':1, 'y':4})
-    q1.put({'x':5, 'y':4})
-    q4.put("EOF")
+    # q4.put({'x':4, 'y':1})
+    # q4.put({'x':3, 'y':4})
+    # q4.put({'x':2, 'y':4})
+    # q4.put({'x':1, 'y':4})
+    # q1.put({'x':5, 'y':4})
+    # q4.put("EOF")
 
-    mjoin = MJoin(4)
+    mjoin = MJoin(3)
     mjoin.setVars(['x'])
-    mjoin.execute(q1, q2, q3, q4)
+    mjoin.execute(q1, q2, q3)
     print "Num comparisons ", mjoin.numComps
     print "Results:"
     count = 0
