@@ -13,20 +13,21 @@ class MJoin(object):
     def __init__(self, numstreams):
         self.numstreams = numstreams
         self.numauxiliary = numstreams - 2
-        self.main_tables = []
+
+        self.rjt_tables = []
         self.auxiliary_tables = []
         self.results = Queue()
         self.numComps = 0
         self.computedPairs = []
 
-        for i in xrange(numstreams):
-            table = HashTable()
-            self.main_tables.append(table)
+        for i in xrange(2**numstreams):
+            table = dict()
+            self.rjt_tables.append(table)
 
-        for i in xrange(self.numauxiliary):
-            # auxtable = []
-            auxtable = HashTable()
-            self.auxiliary_tables.append(auxtable)
+        # for i in xrange(self.numauxiliary):
+        #     # auxtable = []
+        #     auxtable = HashTable()
+        #     self.auxiliary_tables.append(auxtable)
 
     def setVars(self, vars):
         # must be an array, e.g., ['x']
@@ -64,18 +65,56 @@ class MJoin(object):
                         stops[i] = True
                         break
                     print "Tuple:", tuple1
-                    # insert step
+
                     resource = ""
                     for var in self.vars:
                         resource = resource + str(tuple1[var])
-                    ht_index = hash(resource) % self.main_tables[i].size
-                    self.main_tables[i].insertRecord(ht_index, tuple1)
 
-                    # probe against aux tables
-                    self.probeAux(tuple1)
                     # probe against other tables
-                    self.probeMain(tuple1, i)
+                    self.probe(tuple1, i, resource)
+
+                    # insert step
+                    table_index = 2**(self.numstreams-1) >> i
+                    if resource in self.rjt_tables[table_index].keys():
+                        self.rjt_tables[table_index][resource].append(tuple1)
+                    else:
+                        self.rjt_tables[table_index][resource] = [tuple1]
+
         self.results.put("EOF")
+
+    def probe(self, tuple, streamindex, resource):
+        # find all tables to probe
+        indices = self.findTables(streamindex)
+        bin_index = 2**(self.numstreams-1) >> streamindex
+
+        # start probing from the closest to the output rjt
+        for index in indices:
+            probeTable = self.rjt_tables[index]
+            if resource in probeTable.keys():
+                newtuple = {}
+                newtuple[resource] = probeTable[resource][:]
+                #newtuple = dict.copy(probeTable[resource])
+                newtuple[resource].append(tuple)
+                if len(newtuple[resource])==self.numstreams:
+                    #output result
+                    self.generateOutput(newtuple, resource)
+                    del probeTable[resource]
+                else:
+                    # put into the appropriate table
+                    if resource in self.rjt_tables[index+bin_index].keys():
+                        self.rjt_tables[index+bin_index][resource].append(newtuple)
+                    else:
+                        self.rjt_tables[index + bin_index][resource] = newtuple[resource]
+                    del probeTable[resource]
+
+    def findTables(self, k):
+        # find only those indices that do not have 1 in the k-th position of a binary string
+        probe_indices = []
+        for i in xrange(1, 2**self.numstreams):
+            if bin(i)[2:].zfill(self.numstreams)[k]!='1':
+                probe_indices.append(i)
+        # sort the list by number of 1s in the binary representation
+        return sorted(probe_indices, key=lambda x: -sum(int(d) for d in bin(x)[2:]))
 
     def probeAux(self, tup):
         # probing sequence is 0..n
@@ -111,34 +150,6 @@ class MJoin(object):
                     print self.vars
                     print newtuple['tuple']
                     if len(newtuple['tuple'])==self.numstreams:
-                        # max len, produce result
-                        #self.results.append(newtuple)
-
-                        # # transform the result into joined tuples
-                        # #non_key_vars = set(newtuple['tuple'].keys())-set(self.vars)
-                        # #key_vars = set(newtuple['tuple'].keys())
-                        # output_object = {}
-                        # for obj in newtuple['tuple']:
-                        #     for key in obj.keys():
-                        #         if key not in output_object:
-                        #             output_object[key] = set()
-                        #         output_object[key].add(obj[key])
-                        #
-                        # sets = []
-                        # for key in output_object.keys():
-                        #     sets.append(output_object[key])
-                        #
-                        # res = list(itertools.product(*sets))
-                        #
-                        # # len of the tuple in res equals to the number of keys
-                        # # generate the anapsid/mulder output
-                        # #print res
-                        # for elem in res:
-                        #     output = {}
-                        #     for i in xrange(len(output_object.keys())):
-                        #         output[output_object.keys()[i]] = elem[i]
-                        #     #print output
-                        #     self.results.put(output)
                         self.generateOutput(newtuple)
                         #self.results.put(newtuple)
                         #print "Result ", newtuple
@@ -211,12 +222,12 @@ class MJoin(object):
                     # print 'flusing', element
                     partition.records.remove(element)
 
-    def generateOutput(self, newtuple):
+    def generateOutput(self, newtuple, resource):
         # transform the result into joined tuples
         # non_key_vars = set(newtuple['tuple'].keys())-set(self.vars)
         # key_vars = set(newtuple['tuple'].keys())
         output_object = {}
-        for obj in newtuple['tuple']:
+        for obj in newtuple[resource]:
             for key in obj.keys():
                 if key not in output_object:
                     output_object[key] = set()
@@ -322,6 +333,16 @@ def testmjoin():
 # times = min(timeit.Timer(testmjoin).repeat(repeat=3, number=100))
 # print times / 100
 testmjoin()
+
+def findTables(k):
+    probe_indices = []
+    for i in xrange(1,16):
+        if bin(i)[2:].zfill(4)[k]!='1':
+            probe_indices.append(i)
+    # sort the list by number of 1s in the binary representation
+    a = sorted(probe_indices, key=lambda x: -sum(int(d) for d in bin(x)[2:]))
+    return a
+
 
 
 
