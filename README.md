@@ -1,7 +1,7 @@
-# Join Operators for RDF Molecules
+# Join Operators for RDF
 
 ## Description
-Reactive version of the Federated RDF-Based Hybrid Search Engine - **FuhSen**.
+Join operators are key components in SPARQL query engines and RDF Integration Systems. This project contains novel Join physical operators for RDF data.
 
 ## Dependencies
 The Operators are currently implemented in Python (Scala version comming soon) and depends on the following software;
